@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import math
-import numpy as np
 import typing
+
+import numpy as np
 from uncertainties import ufloat
 
 from .logic import (
@@ -16,10 +19,10 @@ class MetricClassifier(ExecutionClassifier):
         self,
         *,
         metric_name: str,
-        passing_values: typing.List[float],
-        failing_values: typing.List[float],
+        passing_values: list[float],
+        failing_values: list[float],
         threshold: float = 0.997,
-        common_variance: typing.Optional[bool] = None,
+        common_variance: bool | None = None,
     ):
         """
         The classifier models the metric as two Gaussian distributions (pass/fail),
@@ -150,7 +153,7 @@ class MetricClassifier(ExecutionClassifier):
             self._fail_history += xs
             self._update(self._fail, xs)
 
-    def text_summary(self, *, columns: int = 120, rows: int = 3) -> typing.List[str]:
+    def text_summary(self, *, columns: int = 120, rows: int = 3) -> list[str]:
         fail_mean, pass_mean = self._fail["m"], self._pass["m"]
         fail_width, pass_width = self._scale(self._fail), self._scale(self._pass)
         fail_lo, fail_hi = fail_mean - fail_width, fail_mean + fail_width
@@ -185,7 +188,7 @@ class MetricClassifier(ExecutionClassifier):
                 chars = []
                 for col in range(columns):
                     # ceil to avoid rounding non-zero bins to zero
-                    height = int(math.ceil(rows * max_dots * hist[col] / max_bin_value))
+                    height = math.ceil(rows * max_dots * hist[col] / max_bin_value)
                     chars.append(dots[min(max_dots, max(0, height - max_dots * row))])
                 assert len(chars) == columns
                 output.append(sep.join(chars))

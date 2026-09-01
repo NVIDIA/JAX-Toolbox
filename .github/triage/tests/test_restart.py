@@ -14,11 +14,10 @@ from jax_toolbox_triage.logic import (
 )
 from jax_toolbox_triage.summary import (
     CONTAINER_CACHE_SECTION,
-    result_cache_from_summary,
     VERSION_CACHE_SECTION,
+    result_cache_from_summary,
 )
 from jax_toolbox_triage.triage_tool import TriageTool
-
 
 start_date = datetime.datetime(2026, 1, 1)
 
@@ -36,6 +35,13 @@ def make_commits():
             ),
         ]
     )
+
+
+@pytest.fixture(scope="module")
+def logger():
+    logger = logging.getLogger("triage-tests")
+    logger.setLevel(logging.DEBUG)
+    return logger
 
 
 def test_restart_requires_output_prefix_and_summary_json(tmp_path):
@@ -89,7 +95,7 @@ def test_restart_uses_output_prefix(tmp_path):
     assert args.output_prefix == tmp_path.resolve()
 
 
-def test_version_search_reuses_preloaded_restart_cache(tmp_path):
+def test_version_search_reuses_preloaded_restart_cache(logger, tmp_path):
     good_dir = tmp_path / "good"
     bad_dir = tmp_path / "bad"
     good_dir.mkdir()
@@ -115,7 +121,7 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
         ]
     }
     (tmp_path / "summary.json").write_text(json.dumps(summary))
-    summary_cache = result_cache_from_summary(tmp_path)
+    summary_cache = result_cache_from_summary(logger, tmp_path)
     result_cache = {
         key: result
         for (section, key), result in summary_cache.items()
@@ -128,7 +134,7 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
     result, last_known_good, first_known_bad = version_search(
         versions=make_commits(),
         build_and_test=build_and_test,
-        logger=logging.getLogger("triage-restart-test"),
+        logger=logger,
         skip_precondition_checks=False,
         confirmation_iterations=0,
         result_cache=result_cache,
@@ -144,7 +150,7 @@ def test_version_search_reuses_preloaded_restart_cache(tmp_path):
     assert classifier(first_known_bad) == ClassifiedTestOutcome.FAIL
 
 
-def test_summary_cache_loads_container_records(tmp_path):
+def test_summary_cache_loads_container_records(logger, tmp_path):
     out_dir = tmp_path / "container-output"
     out_dir.mkdir()
     summary = {
@@ -159,7 +165,7 @@ def test_summary_cache_loads_container_records(tmp_path):
     }
     (tmp_path / "summary.json").write_text(json.dumps(summary))
 
-    summary_cache = result_cache_from_summary(tmp_path)
+    summary_cache = result_cache_from_summary(logger, tmp_path)
 
     cached_result = summary_cache[(CONTAINER_CACHE_SECTION, "container-url")]
     assert cached_result.exit_code_based_pass()

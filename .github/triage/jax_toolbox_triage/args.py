@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import argparse
 import datetime
 import getpass
 import os
 import pathlib
 import tempfile
-import typing
 import warnings
 
 # Software we know may exist in the containers that we might be able to triage
@@ -16,8 +17,8 @@ compulsory_software = ["xla", "jax"]
 optional_software = ["flax", "maxtext", "transformer-engine"]
 
 
-def parse_cherry_picks(s: str) -> typing.Dict[str, typing.List[str]]:
-    ret: typing.Dict[str, typing.List[str]] = {}
+def parse_cherry_picks(s: str) -> dict[str, list[str]]:
+    ret: dict[str, list[str]] = {}
     for part in s.split(","):
         sw, commit = part.split(":", 1)
         if sw not in ret:
@@ -26,8 +27,8 @@ def parse_cherry_picks(s: str) -> typing.Dict[str, typing.List[str]]:
     return ret
 
 
-def parse_version_argument(s: str) -> typing.Dict[str, str]:
-    ret: typing.Dict[str, str] = {}
+def parse_version_argument(s: str) -> dict[str, str]:
+    ret: dict[str, str] = {}
     for part in s.split(","):
         sw, version = part.split(":", 1)
         assert sw not in ret, ret
@@ -35,7 +36,7 @@ def parse_version_argument(s: str) -> typing.Dict[str, str]:
     return ret
 
 
-def parse_override_remotes(s: str) -> typing.Dict[str, str]:
+def parse_override_remotes(s: str) -> dict[str, str]:
     """Function to parse the override remote
 
     Inputs:
@@ -44,7 +45,7 @@ def parse_override_remotes(s: str) -> typing.Dict[str, str]:
     Returns:
         ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
     """
-    ret: typing.Dict[str, str] = {}
+    ret: dict[str, str] = {}
     for part in s.split(","):
         sw, url = part.split(":", 1)
         assert sw not in ret, ret
@@ -434,7 +435,9 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), "For local runtime, --passing-versions and --failing-versions must be provided."
+        ), (
+            "For local runtime, --passing-versions and --failing-versions must be provided."
+        )
         assert (
             args.container is None
             and args.start_date is None

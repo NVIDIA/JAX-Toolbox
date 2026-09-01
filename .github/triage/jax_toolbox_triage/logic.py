@@ -1,11 +1,13 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
 import datetime
-from enum import auto, Enum
 import functools
 import itertools
 import logging
 import pathlib
 import typing
+from dataclasses import dataclass
+from enum import Enum, auto
 
 
 class CouldNotReproduceFailure(Exception):
@@ -44,12 +46,12 @@ class TestResult:
     """
 
     __test__ = False  # stop pytest gathering this
-    build_stdouterr: typing.Optional[str]
+    build_stdouterr: str | None
     host_output_directory: pathlib.Path
     result: TestExecutionOutcome
-    stdouterr: typing.Optional[str]
-    time: typing.Optional[float]
-    metrics: typing.Dict[str, typing.Any]
+    stdouterr: str | None
+    time: float | None
+    metrics: dict[str, typing.Any]
     # Intentionally not serialized: --restart should make one fresh attempt to obtain
     # a result, while repeated use within one search should not consume more retries.
     required_metric_retries_exhausted: bool = False
@@ -140,7 +142,7 @@ class ExitCodeClassifier(ExecutionClassifier):
             assert label == ClassifiedTestOutcome.FAIL, label
             assert all(r.exit_code_based_fail() for r in results)
 
-    def text_summary(self, *, columns: int = 120, rows: int = 3) -> typing.List[str]:
+    def text_summary(self, *, columns: int = 120, rows: int = 3) -> list[str]:
         return []
 
 
@@ -152,10 +154,10 @@ def adjust_date(
     date: datetime.datetime,
     logger: logging.Logger,
     container_exists: typing.Callable[[datetime.date], bool],
-    before: typing.Optional[datetime.date] = None,
-    after: typing.Optional[datetime.date] = None,
+    before: datetime.date | None = None,
+    after: datetime.date | None = None,
     max_steps: int = 100,
-) -> typing.Optional[datetime.date]:
+) -> datetime.date | None:
     """
     Given a datetime that may have non-zero hour/minute/second/... parts, and where
     container_url(date.date()) might be a container that does not exist due to job
@@ -211,12 +213,12 @@ def container_search(
     *,
     container_exists: typing.Callable[[datetime.date], bool],
     container_passes: DateTester,
-    start_date: typing.Optional[datetime.date],
-    end_date: typing.Optional[datetime.date],
+    start_date: datetime.date | None,
+    end_date: datetime.date | None,
     logger: logging.Logger,
     skip_precondition_checks: bool,
     threshold_days: int,
-) -> typing.Tuple[datetime.date, datetime.date]:
+) -> tuple[datetime.date, datetime.date]:
     adjust = functools.partial(
         adjust_date, logger=logger, container_exists=container_exists
     )
@@ -330,7 +332,7 @@ class BuildAndTest(typing.Protocol):
     def __call__(
         self,
         *,
-        versions: typing.Dict[str, str],
+        versions: dict[str, str],
         test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
         repeating_test_repetition: bool = False,
@@ -352,7 +354,7 @@ def _first(xs: typing.Iterable[T]) -> T:
     return next(iter(xs))
 
 
-def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
+def _not_first(d: dict[T, U]) -> typing.Iterable[tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
 
 
@@ -360,11 +362,9 @@ def _get_versions(
     *,
     logger: logging.Logger,
     primary: str,
-    primary_index: typing.Optional[int] = None,
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, int]]:
+    primary_index: int | None = None,
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
+) -> tuple[dict[str, str], dict[str, int]]:
     if primary_index is None:
         primary_index = len(versions[primary]) // 2
         log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
@@ -390,24 +390,20 @@ def _get_versions(
 
 
 def _earliest_versions(
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-) -> typing.Dict[str, str]:
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
+) -> dict[str, str]:
     return {package: version_list[0][0] for package, version_list in versions.items()}
 
 
 def _latest_versions(
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-) -> typing.Dict[str, str]:
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
+) -> dict[str, str]:
     return {package: version_list[-1][0] for package, version_list in versions.items()}
 
 
 def _strip_unavailable_versions(
-    versions: typing.Dict[str, str],
-) -> typing.Dict[str, str]:
+    versions: dict[str, str],
+) -> dict[str, str]:
     def remove_unavailable_versions(ver):
         ver_bits = ver.split(",")
         if len(ver_bits) == 1:
@@ -435,7 +431,7 @@ _WORKLOAD_VERSION_KEY = "WORKLOAD"
 
 
 def version_cache_key(
-    versions: typing.Dict[str, str],
+    versions: dict[str, str],
     *,
     repetition: int = 0,
 ) -> FlatVersionDict:
@@ -447,22 +443,18 @@ def version_cache_key(
 
 def version_search(
     *,
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
     build_and_test: BuildAndTest,
     logger: logging.Logger,
     skip_precondition_checks: bool,
     check_success_before_failure: bool = True,
     confirmation_iterations: int = 1,
-    max_repetitions: typing.Optional[int] = None,
-    result_cache: typing.Optional[typing.Dict[FlatVersionDict, TestResult]] = None,
-    classifier: ExecutionClassifier = ExitCodeClassifier(),
-    metric_name: typing.Optional[str] = None,
+    max_repetitions: int | None = None,
+    result_cache: dict[FlatVersionDict, TestResult] | None = None,
+    classifier: ExecutionClassifier | None = None,
+    metric_name: str | None = None,
     missing_metric_retries: int = 1,
-) -> typing.Tuple[
-    typing.Dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]
-]:
+) -> tuple[dict[str, str], typing.Sequence[TestResult], typing.Sequence[TestResult]]:
     """
     Bisect a failure back to a single version of a single component.
 
@@ -497,6 +489,8 @@ def version_search(
     False, but the other fields can be used to obtain stdout+stderr and
     output files from those test invocations.
     """
+    if classifier is None:
+        classifier = ExitCodeClassifier()
     if max_repetitions is None:
         max_repetitions = confirmation_iterations + 2
     assert max_repetitions >= confirmation_iterations, (
@@ -805,7 +799,7 @@ def version_search(
         return outcome, results
 
     while len(versions[primary]) > 2:
-        bisect_result, bisect_versions = find_usable_result(versions=versions)
+        _bisect_result, bisect_versions = find_usable_result(versions=versions)
 
         # reconstruct the indices in `versions` of the versions in `bisect_versions`
         def _index(pkg, ver):

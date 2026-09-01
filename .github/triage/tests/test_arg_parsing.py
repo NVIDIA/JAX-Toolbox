@@ -1,4 +1,5 @@
 import pytest
+
 from jax_toolbox_triage.args import parse_args
 
 test_command = ["my-test-command"]

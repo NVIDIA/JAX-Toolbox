@@ -1,8 +1,9 @@
 import logging
+
 from .container import Container
 from .docker import DockerContainer
-from .pyxis import PyxisContainer
 from .local import LocalContainer
+from .pyxis import PyxisContainer
 
 
 def make_container(

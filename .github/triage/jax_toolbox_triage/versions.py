@@ -1,16 +1,17 @@
-import typing
-from .container import Container
+from __future__ import annotations
+
 from .args import compulsory_software
+from .container import Container
 
 
-def get_env(worker: Container) -> typing.Dict[str, str]:
+def get_env(worker: Container) -> dict[str, str]:
     """
     Get the runtime environment in the given container.
 
     Returns: {env_var: value} dictionary, sorted by key.
     """
 
-    def impl() -> typing.Dict[str, str]:
+    def impl() -> dict[str, str]:
         kvs = (
             worker.check_exec(["env", "-0"], policy="once", stderr="separate")
             .stdout[:-1]  # skip the trailing \0
@@ -27,8 +28,8 @@ def get_env(worker: Container) -> typing.Dict[str, str]:
 
 def get_commits_and_dirs(
     worker: Container,
-    optional_software: typing.List[str],
-) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str]]:
+    optional_software: list[str],
+) -> tuple[dict[str, str], dict[str, str]]:
     """
     Get the git repository paths and current HEAD commits in the given environment of
     the software packages named in `compulsory_software` and `optional_software`.
@@ -64,8 +65,8 @@ def get_versions_dirs_env(
     *,
     worker: Container,
     versions_from_env: bool,
-    optional_software: typing.List[str],
-) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, str], typing.Dict[str, str]]:
+    optional_software: list[str],
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
     """
     Get software versions in the given [container] environment, git repository paths
     where relevant, and the runtime environment.
