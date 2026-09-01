@@ -7,6 +7,7 @@ import os
 import pathlib
 import tempfile
 import warnings
+import typing
 
 # Software we know may exist in the containers that we might be able to triage
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
@@ -52,7 +53,6 @@ def parse_commit_argument(s: str) -> typing.Dict[str, str]:
     return versions
 
 
-def parse_override_remotes(s: str) -> typing.Dict[str, str]:
 def parse_override_remotes(s: str) -> dict[str, str]:
     """Function to parse the override remote
 
@@ -468,9 +468,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
