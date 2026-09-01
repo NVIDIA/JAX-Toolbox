@@ -226,6 +226,7 @@ def _load_nvtx_gpu_proj_trace_single(
 
     # Apply a filter for taking out nccl chunks
     nccl_mask = df["Name"].str.startswith(nccl_prefix)
+    nccl_group_end = df["Name"] == f"{nccl_prefix}ncclGroupEnd"
     if nccl_mask.any():
         # get the ids to be removed
         drop_ids = df.index[nccl_mask]
@@ -237,8 +238,10 @@ def _load_nvtx_gpu_proj_trace_single(
         df.loc[children_mask, "ParentId"] = df.loc[children_mask, "ParentId"].map(
             reparent_map
         )
-        # drop the nccl rows
-        df = df[~nccl_mask]
+        # Keep ncclGroupEnd as a fallback for XLA versions that do not emit a
+        # complete set of projected TSL:Thunk ranges. It will be reconciled with
+        # HLO-annotated thunks later.
+        df = df[~nccl_mask | nccl_group_end]
     # Due to idiosyncracies of how Nsight tracks CUDA graphs, and because
     # thunks can be nested, the NVTX hierarchy generally looks like:
     #  Iteration -> XlaModule:A [-> XlaModule:B] -> Thunk:C [-> Thunk:D ...]
@@ -249,11 +252,16 @@ def _load_nvtx_gpu_proj_trace_single(
     # of these, like Thunk:C in the example above, for not being the most
     # deeply nested.
     thunk_prefix = f"{tsl_prefix}Thunk:#"
+    thunk_re = (
+        f"^{tsl_prefix}Thunk:#(?:name=.*?,|)" r"hlo_op=([a-z0-9._-]+)(?:,[^#]*)?#$"
+    )
     all_thunks = df["Name"].str.startswith(thunk_prefix)
 
     # If profile collection started while an XlaModule was executing, there may
-    # be Thunk ranges without XlaModule parents. We treat those as edge effects
-    # and ignore them.
+    # be Thunk ranges before the first XlaModule. We treat those as edge effects
+    # and ignore them. Parentless thunks after the first module are not necessarily
+    # edge effects: async thunks are emitted as top-level ranges and carry a
+    # unique_hlo_op_id that lets us associate them with their HLO module.
     module_prefix = f"{tsl_prefix}XlaModule:"
     all_modules = df["Name"].str.startswith(module_prefix)
     first_module_start_time = df.loc[all_modules, "ProjStartMs"].min()
@@ -262,20 +270,38 @@ def _load_nvtx_gpu_proj_trace_single(
         print(f"Ignoring {thunks_without_modules.sum()} thunks without modules")
     all_thunks &= ~thunks_without_modules
 
-    # We will set ModuleId to refer to the RangeId of the closest ancestor
-    # XlaModule of each Thunk.
-    # Initial state, correct where thunks are direct descendants of modules
-    df.loc[:, "ModuleId"] = -1
-    df.loc[all_thunks, "ModuleId"] = df.loc[all_thunks, "ParentId"]
+    # Parse the numerical program ID out of the name of each XlaModule.
+    # program_id is not set in all cases, although this could be fixed in XLA.
+    # The classic example where it is not set is during autotuning, where ops
+    # to be autotuned are extracted into new HloModule instances, which are not
+    # propagated to the GpuExecutable that emits the XlaModule annotation.
+    # Those are probably not interesting, so setting the ProgramId to
+    # "unknown" in such cases is acceptable.
+    module_re = (
+        "^"
+        + tsl_prefix
+        + r"XlaModule:#(?:prefix=(.*?),|)hlo_module=([a-z0-9._-]+)(?:,program_id=(\d+)|)#$"
+    )
 
-    # Convert to a series of indices in the global dataframe
-    thunk_ids = df[all_thunks].index
+    # We will set ModuleId to refer to the RangeId of the closest ancestor
+    # XlaModule of each Thunk. Use a nullable integer dtype because async thunks
+    # intentionally do not have a ParentId. This is also required by pandas 3,
+    # which no longer silently upcasts an integer column when assigning nulls.
+    df["ModuleId"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+    thunk_ids = df.index[all_thunks & df["ParentId"].notna()]
+    df.loc[thunk_ids, "ModuleId"] = df.loc[thunk_ids, "ParentId"].array
 
     # Where the ModuleId refers to a Thunk, update ModuleId with that Thunk's
     # ParentId. Iterate until convergence (i.e. when all ModuleId refer to
     # XlaModule ranges).
     while True:
         # thunk_ids are indices (in df) of the Thunks we are checking
+        # A parentless ancestor marks an async thunk hierarchy. Leave those
+        # ModuleId values unset for the HLO-ID based association below.
+        missing_parent = df.loc[thunk_ids, "ModuleId"].isna()
+        thunk_ids = thunk_ids[~missing_parent]
+        if thunk_ids.empty:
+            break
         mod_ids = df.loc[thunk_ids, "ModuleId"].astype(np.int32)
         # get the names of the ranges referred to by ModuleId
         mod_id_names = df.loc[mod_ids, "Name"]
@@ -300,8 +326,13 @@ def _load_nvtx_gpu_proj_trace_single(
         # that was referred to by the old ModuleId
         df.loc[thunk_ids, "ModuleId"] = df.loc[mod_ids, "ParentId"][mask].array
 
-    # Now all the Thunks should have ModuleId pointing to an XlaModule range.
-    mod_ids = sorted(set(df.loc[all_thunks, "ModuleId"].astype(np.int32)))
+    # Attached thunks now point to their closest XlaModule. Also retain modules
+    # that have no thunk children: current XLA can emit module-only executions.
+    attached_thunks = all_thunks & df["ModuleId"].notna()
+    attached_mod_ids = set(df.loc[attached_thunks, "ModuleId"].astype(np.int32))
+    parsed_modules = df.loc[all_modules, "Name"].str.extract(module_re)
+    explicit_mod_ids = set(parsed_modules.index[parsed_modules[2].notna()])
+    mod_ids = sorted(attached_mod_ids | explicit_mod_ids)
     assert df.loc[all_thunks, "Name"].str.startswith(thunk_prefix).all()
     assert df.loc[mod_ids, "Name"].str.startswith(module_prefix).all()
 
@@ -325,21 +356,9 @@ def _load_nvtx_gpu_proj_trace_single(
                 mod_id = mod_name_df.index[-1]
                 mod_ids.remove(mod_id)
                 # Also remove its thunks from all_thunks
-                all_thunks &= df["ModuleId"] != mod_id
+                all_thunks &= (df["ModuleId"] != mod_id).fillna(True)
         df = df.drop(columns=["NumGPUOps"])
 
-    # Parse the numerical program ID out of the name of each XlaModule.
-    # program_id is not set in all cases, although this could be fixed in XLA.
-    # The classic example where it is not set is during autotuning, where ops
-    # to be autotuned are extracted into new HloModule instances, which are not
-    # propagated to the GpuExecutable that emits the XlaModule annotation.
-    # Those are probably not interesting, so setting the ProgramId to
-    # "unknown" in such cases is acceptable.
-    module_re = (
-        "^"
-        + tsl_prefix
-        + r"XlaModule:#(?:prefix=(.*?),|)hlo_module=([a-z0-9._-]+)(?:,program_id=(\d+)|)#$"
-    )
     # Apply a transformation to the program IDs to handle the case where profiles are
     # being combined from multiple processes, but the distributed application was not
     # strictly SPMD - so the IDs collected from different processes do not match for
@@ -353,10 +372,161 @@ def _load_nvtx_gpu_proj_trace_single(
         n=1,
         regex=True,
     )
-    # Update each module and thunk row with the program ID it corresponds to
+    # Update each module row with the program ID it corresponds to.
+    df["ProgramId"] = pd.Series(index=df.index, dtype=object)
     df.loc[mod_ids, "ProgramId"] = mod_program_ids
+
+    # Async thunks are top-level ranges rather than children of XlaModule. XLA
+    # annotates them with the unique HLO instruction ID, so build the reverse
+    # instruction-ID -> program-ID lookup from the protobufs we just loaded.
+    detached_thunks = all_thunks & df["ModuleId"].isna()
+    detached_ids = df.index[detached_thunks]
+    if len(detached_ids):
+        program_ids_by_instruction_id = defaultdict(set)
+        for program_id in set(mod_program_ids) - {"unknown"}:
+            instruction_ids = xla_module_metadata(
+                program_id, prefix=prefix, policy="all"
+            ).reduce_result(
+                lambda proto: set(proto.instruction_ids()),
+                lambda lhs, rhs: lhs | rhs,
+            )
+            for instruction_id in instruction_ids:
+                program_ids_by_instruction_id[instruction_id].add(program_id)
+
+        instruction_ids = df.loc[detached_ids, "Name"].str.extract(
+            r"unique_hlo_op_id=(\d+)", expand=False
+        )
+        assert instruction_ids.notna().all(), (
+            "Parentless thunks are missing unique_hlo_op_id: "
+            f"{list(df.loc[instruction_ids.index[instruction_ids.isna()], 'Name'])}"
+        )
+        detached_program_id_sets = instruction_ids.astype(np.int64).map(
+            program_ids_by_instruction_id
+        )
+        missing_program_ids = detached_program_id_sets.map(len) == 0
+        assert not missing_program_ids.any(), (
+            "Could not find an HLO module for async thunk instruction IDs: "
+            f"{list(instruction_ids[missing_program_ids])}"
+        )
+        ambiguous_program_ids = detached_program_id_sets.map(len) != 1
+        assert not ambiguous_program_ids.any(), (
+            "Async thunk instruction IDs matched multiple HLO modules: "
+            f"{dict(detached_program_id_sets[ambiguous_program_ids])}"
+        )
+        detached_program_ids = detached_program_id_sets.map(lambda ids: next(iter(ids)))
+        df.loc[detached_ids, "ProgramId"] = detached_program_ids.array
+
+        # Associate each async thunk with the most recently-started execution of
+        # that program on the same launcher thread.
+        module_groups = {
+            key: module_df.sort_values("ProjStartMs")
+            for key, module_df in df.loc[mod_ids].groupby(
+                ["PID", "TID", "ProgramId"], sort=False
+            )
+        }
+        for key, thunk_df in df.loc[detached_ids].groupby(
+            ["PID", "TID", "ProgramId"], sort=False
+        ):
+            assert key in module_groups, (
+                "Could not find an XlaModule execution for async thunks on "
+                f"PID/TID/program {key}"
+            )
+            module_df = module_groups[key]
+            module_starts = module_df["ProjStartMs"].to_numpy()
+            positions = (
+                np.searchsorted(
+                    module_starts, thunk_df["ProjStartMs"].to_numpy(), side="right"
+                )
+                - 1
+            )
+            assert (positions >= 0).all(), (
+                "Async thunks started before their first XlaModule execution on "
+                f"PID/TID/program {key}"
+            )
+            df.loc[thunk_df.index, "ModuleId"] = pd.array(
+                module_df.index.to_numpy()[positions], dtype="Int64"
+            )
+
+    # Some collectives only have a projected NCCL:ncclGroupEnd range, with no
+    # TSL:Thunk range. Associate NCCL ranges by time with their enclosing module
+    # execution and reconcile them with the entry computation's communication
+    # instructions.
+    nccl_group_end_ids = df.index[nccl_group_end.reindex(df.index, fill_value=False)]
+    if len(nccl_group_end_ids):
+        module_groups = {
+            key: module_df.sort_values("ProjStartMs")
+            for key, module_df in df.loc[mod_ids].groupby(["PID", "TID"], sort=False)
+        }
+        for key, nccl_df in df.loc[nccl_group_end_ids].groupby(
+            ["PID", "TID"], sort=False
+        ):
+            if key not in module_groups:
+                continue
+            module_df = module_groups[key]
+            module_starts = module_df["ProjStartMs"].to_numpy()
+            positions = (
+                np.searchsorted(
+                    module_starts, nccl_df["ProjStartMs"].to_numpy(), side="right"
+                )
+                - 1
+            )
+            good = positions >= 0
+            df.loc[nccl_df.index[good], "ModuleId"] = pd.array(
+                module_df.index.to_numpy()[positions[good]], dtype="Int64"
+            )
+
+        for module_id, nccl_df in (
+            df.loc[nccl_group_end_ids]
+            .dropna(subset=["ModuleId"])
+            .groupby("ModuleId", sort=False)
+        ):
+            module_id = int(module_id)
+            program_id = df.loc[module_id, "ProgramId"]
+            if program_id == "unknown":
+                continue
+            comm_names = xla_module_metadata(
+                program_id, prefix=prefix, policy="all"
+            ).unique_result(
+                lambda proto: proto.entry_computation_communication_instruction_names()
+            )
+            annotated_names = df.loc[
+                all_thunks & (df["ModuleId"] == module_id), "Name"
+            ].str.replace(
+                pat=thunk_re,
+                repl=lambda m: m.group(1),
+                n=1,
+                regex=True,
+            )
+            # A nested communication thunk can have a different HLO name from
+            # its entry-computation async launch, so classify it through the HLO
+            # metadata rather than comparing names directly.
+            annotated_comm_ids = [
+                thunk_id
+                for thunk_id, name in annotated_names.items()
+                if _is_communication(program_id, prefix, name)
+            ]
+            if len(nccl_df) != len(comm_names) and annotated_comm_ids:
+                # The NCCL ranges do not have a one-to-one correspondence with HLO
+                # instructions, so retain the richer HLO annotations in this case.
+                continue
+            assert len(nccl_df) == len(comm_names), (
+                f"Module range {module_id} has {len(nccl_df)} NCCL ranges but "
+                f"{len(comm_names)} entry HLO communication instructions"
+            )
+            # Prefer the complete NCCL sequence when it can be mapped one-to-one.
+            # This replaces any projected TSL communication thunks, some XLA versions
+            # of which cover only a subset of the collectives in the module.
+            all_thunks.loc[annotated_comm_ids] = False
+            for nccl_id, instruction_name in zip(
+                nccl_df.index, comm_names, strict=True
+            ):
+                df.loc[nccl_id, "Name"] = f"{thunk_prefix}hlo_op={instruction_name}#"
+                df.loc[nccl_id, "ProgramId"] = program_id
+                all_thunks.loc[nccl_id] = True
+
+    # Propagate the program ID through the attached and reconstructed links.
     df.loc[all_thunks, "ProgramId"] = mod_program_ids[
-        df.loc[all_thunks, "ModuleId"]
+        df.loc[all_thunks, "ModuleId"].astype(np.int32)
     ].array
 
     # Associate thunk executions with the local/global device ID, global process index,
@@ -372,7 +542,8 @@ def _load_nvtx_gpu_proj_trace_single(
     threads_with_known_device_associations = set(
         map(tuple, device_by_pid_tid.index.to_flat_index())
     )
-    for module_id, module_df in df[all_thunks].groupby("ProgramId"):
+    retained = all_thunks | df.index.isin(mod_ids)
+    for module_id, module_df in df.loc[retained].groupby("ProgramId"):
         # Get the PID/TIDs associated to this module
         unique_pid_tid_pairs = set(
             map(
@@ -391,19 +562,26 @@ def _load_nvtx_gpu_proj_trace_single(
             threads_to_associate_with_zeroth_device |= unique_pid_tid_pairs
     # Associate `threads_to_associate_with_zeroth_device` with device_by_pid_tid.iloc[0]
     for pid_tid in threads_to_associate_with_zeroth_device:
-        zeroth_device = device_by_pid_tid.iloc[:1]
+        zeroth_device = device_by_pid_tid.iloc[:1].copy()
         zeroth_device.index = pd.MultiIndex.from_tuples([pid_tid], names=["PID", "TID"])
         device_by_pid_tid = pd.concat([device_by_pid_tid, zeroth_device])
     assert device_by_pid_tid.index.names == ["PID", "TID"]
-    old_length = len(df)
-    df = pd.merge(
-        df,
+    # Only module and thunk rows need a device association. Joining the entire
+    # projection also includes compilation and setup ranges on unrelated threads,
+    # which made the old inner merge drop rows and fail its length assertion.
+    df = df.loc[retained].copy()
+    all_thunks = all_thunks.loc[df.index]
+    df = df.join(
         device_by_pid_tid,
-        left_on=["PID", "TID"],
-        right_index=True,
+        on=["PID", "TID"],
+        how="left",
         validate="many_to_one",
     )
-    assert len(df) == old_length, f"df changed from {old_length} to {len(df)}"
+    missing_device = df["Device"].isna()
+    assert not missing_device.any(), (
+        "Could not associate retained module/thunk rows with a device: "
+        f"{list(df.index[missing_device])}"
+    )
 
     # Add a new column describing which (0th, 1st, ...) execution of the module
     # each module/thunk range corresponds to. This needs to be done by Device instead
@@ -435,7 +613,7 @@ def _load_nvtx_gpu_proj_trace_single(
         # thunks + the protobuf data, and we can further clean up the data.
         thunk_df = clean_data_frame(df[all_thunks])
         thunk_df["Name"] = thunk_df["Name"].str.replace(
-            pat=f"^{tsl_prefix}Thunk:#(?:name=.*?,|)hlo_op=([a-z0-9._-]+)(?:,[^#]*)?#$",
+            pat=thunk_re,
             n=1,
             repl=lambda m: m.group(1),
             regex=True,
