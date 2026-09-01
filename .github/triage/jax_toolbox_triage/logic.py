@@ -354,7 +354,7 @@ def _not_first(d: typing.Dict[T, U]) -> typing.Iterable[typing.Tuple[T, U]]:
     return itertools.islice(d.items(), 1, None)
 
 
-def get_aligned_versions(
+def _get_versions(
     *,
     logger: logging.Logger,
     primary: str,
@@ -644,9 +644,7 @@ def version_search(
     # take the oldest versions of the other packages that are newer than the
     # first package.
     primary = _first(versions.keys())
-    get_versions = functools.partial(
-        get_aligned_versions, logger=logger, primary=primary
-    )
+    get_versions = functools.partial(_get_versions, logger=logger, primary=primary)
 
     def find_successful_build(versions):
         # Try to find a set of versions where the build does not fail, starting with

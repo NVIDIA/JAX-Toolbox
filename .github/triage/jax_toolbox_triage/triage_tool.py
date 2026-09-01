@@ -26,8 +26,8 @@ from .logic import (
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
+    _get_versions,
     container_search,
-    get_aligned_versions,
     version_search,
 )
 from .metric_classifier import MetricClassifier
@@ -1041,7 +1041,7 @@ class TriageTool:
             for package, versions in package_versions.items()
             if package != candidate.package
         )
-        versions, indices = get_aligned_versions(
+        versions, indices = _get_versions(
             logger=self.logger,
             primary=candidate.package,
             primary_index=0 if candidate_index is None else candidate_index,
