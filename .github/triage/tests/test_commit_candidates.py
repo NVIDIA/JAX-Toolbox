@@ -14,7 +14,6 @@ from jax_toolbox_triage.logic import (
 )
 from jax_toolbox_triage.triage_tool import TriageTool, _CommitCandidate
 
-
 START = datetime.datetime(2026, 1, 1)
 DAY = datetime.timedelta(days=1)
 

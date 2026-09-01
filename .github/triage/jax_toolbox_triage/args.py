@@ -7,7 +7,6 @@ import os
 import pathlib
 import tempfile
 import warnings
-import typing
 
 # Software we know may exist in the containers that we might be able to triage
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
@@ -37,7 +36,7 @@ def parse_version_argument(s: str) -> dict[str, str]:
     return ret
 
 
-def parse_commit_argument(s: str) -> typing.Dict[str, str]:
+def parse_commit_argument(s: str) -> dict[str, str]:
     try:
         versions = parse_version_argument(s)
     except (AssertionError, ValueError) as error:
@@ -60,7 +59,7 @@ def parse_override_remotes(s: str) -> dict[str, str]:
         s: (str) e.g. https://<token>@host/repo.git
 
     Returns:
-        ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
+        ret: (dict[str, str]) Dictionary with software as key and git-url as value.
     """
     ret: dict[str, str] = {}
     for part in s.split(","):

@@ -15,7 +15,7 @@ import tempfile
 import time
 import urllib.parse
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any
 
 from .bisect import get_commit_history
 from .container import Container
@@ -58,7 +58,6 @@ class InconsistentResults(Exception):
     pass
 
 
-
 def _bounded_tag_suffix(container_registry: str | None, tag_suffix: str) -> str:
     """Keep the complete Docker tag within its 128-character limit."""
     if container_registry is None:
@@ -97,8 +96,8 @@ def _remote_without_credentials(
         urllib.parse.unquote(parsed.password or ""),
     )
     return sanitized, credentials
-  
-  
+
+
 def _git_fetch_refs(version: str, cherry_picks: list[str]) -> list[str]:
     """Return every object needed to check out and cherry-pick a version."""
     refs = [version]
@@ -114,7 +113,7 @@ class _CommitCandidate:
     commit: str
     parent: str
     date: datetime.datetime
-    references: Dict[str, str]
+    references: dict[str, str]
 
 
 class TriageTool:
@@ -135,7 +134,7 @@ class TriageTool:
         self.package_dirs = None
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
-        self.commits_to_fetch: Dict[str, Set[str]] = {}
+        self.commits_to_fetch: dict[str, set[str]] = {}
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
         self.restart_cache = (
@@ -1020,13 +1019,13 @@ class TriageTool:
     def _resolve_commit_candidates(
         self,
         worker: Container,
-        known_versions: Dict[str, str],
-    ) -> List[_CommitCandidate]:
+        known_versions: dict[str, str],
+    ) -> list[_CommitCandidate]:
         """Resolve candidate vectors while the preparation container is available."""
         assert self.package_dirs is not None
         candidates = []
         for hint in self.args.commit or []:
-            package, revision = next(iter(hint.items()))
+            package = next(iter(hint))
             if package not in self.package_dirs:
                 raise ValueError(
                     f"--commit culprit {package!r} is not a Git repository "
@@ -1189,7 +1188,7 @@ class TriageTool:
     def _narrow_histories_from_candidate(
         self,
         package_versions: collections.OrderedDict,
-        indices: Dict[str, int],
+        indices: dict[str, int],
         outcome: ClassifiedTestOutcome,
     ) -> collections.OrderedDict:
         """Narrow every history around a known passing or failing version vector."""
@@ -1230,6 +1229,8 @@ class TriageTool:
         package_versions: collections.OrderedDict,
         result_cache,
         classifier: ExecutionClassifier,
+        metric_name: str | None = None,
+        missing_metric_retries: int = 1,
     ):
         """Check one ``--commit`` vector and narrow histories if it is wrong.
 
@@ -1273,6 +1274,8 @@ class TriageTool:
                 confirmation_iterations=self.args.confirmation_iterations,
                 result_cache=result_cache,
                 classifier=classifier,
+                metric_name=metric_name,
+                missing_metric_retries=missing_metric_retries,
             )
         except CouldNotReproduceDesiredOutcome as error:
             if error.expected_outcome == ClassifiedTestOutcome.PASS:
@@ -1418,6 +1421,8 @@ class TriageTool:
                     confirmation_iterations=self.args.confirmation_iterations,
                     result_cache=result_cache,
                     classifier=classifier,
+                    metric_name=self.args.metric_name,
+                    missing_metric_retries=self.args.missing_metric_retries,
                 )
             except CouldNotReproduceDesiredOutcome as e:
                 if e.expected_outcome == ClassifiedTestOutcome.FAIL:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import functools
 import itertools
@@ -15,8 +17,8 @@ class CouldNotReproduceDesiredOutcome(Exception):
         self,
         message: str,
         *,
-        expected_outcome: "ClassifiedTestOutcome",
-        actual_outcome: "ClassifiedTestOutcome",
+        expected_outcome: ClassifiedTestOutcome,
+        actual_outcome: ClassifiedTestOutcome,
     ) -> None:
         super().__init__(message)
         self.expected_outcome = expected_outcome
@@ -367,11 +369,9 @@ def _get_versions(
     *,
     logger: logging.Logger,
     primary: str,
-    primary_index: typing.Optional[int] = None,
-    versions: typing.OrderedDict[
-        str, typing.Sequence[typing.Tuple[str, datetime.datetime]]
-    ],
-) -> typing.Tuple[typing.Dict[str, str], typing.Dict[str, int]]:
+    primary_index: int | None = None,
+    versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
+) -> tuple[dict[str, str], dict[str, int]]:
     """Select the primary version and contemporary versions of other packages.
 
     For each secondary package, choose the oldest version whose timestamp is not
@@ -869,16 +869,14 @@ def version_search(
             # as given middle=fail, and Q1=fail the points between Q1 and middle will
             # not be checked.
             n_primary = len(versions[primary])
-            unavailable_commits = []
+            unavailable_commits: list[str] = []
             for n in range(1, n_primary - 1):
                 versions_n, _ = get_versions(primary_index=n, versions=versions)
                 # Should have yielded no usable results if tested.
                 result_n = result_cache.get(version_cache_key(versions_n))
                 if result_n is not None:
-                    assert (
-                        result_n.result == TestExecutionOutcome.BUILD_FAILURE
-                    ), result_n
-                build_fail_commits.append(versions_n[primary])
+                    assert not _yielded_results(result_n), result_n
+                unavailable_commits.append(versions_n[primary])
             logger.warning(
                 f"Could not triage {primary} to a single version because some "
                 f"executions yielded no results; adding {n_primary - 2} version(s) to both "

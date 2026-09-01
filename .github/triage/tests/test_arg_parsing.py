@@ -114,6 +114,8 @@ def test_repeated_commit_arguments():
 def test_bad_commit_argument(commit):
     with pytest.raises(SystemExit):
         parse_args(valid_start_end_container + ["--commit", commit] + test_command)
+
+
 def test_missing_metric_retries():
     assert parse_args(valid_local_args + test_command).missing_metric_retries == 1
     assert (

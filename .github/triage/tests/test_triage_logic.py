@@ -10,7 +10,6 @@ from jax_toolbox_triage.logic import (
     _EXIT_CODE_METRIC,
     ClassifiedTestOutcome,
     CouldNotReproduceDesiredOutcome,
-    container_search,
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
