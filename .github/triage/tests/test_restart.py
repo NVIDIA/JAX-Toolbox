@@ -190,6 +190,55 @@ def test_restart_suffixed_stale_output_directory(tmp_path):
     assert retry.name.endswith("-restart-1")
 
 
+def test_retry_cleans_and_reuses_rep_zero_output_directory(tmp_path):
+    (tmp_path / "summary.json").write_text("{}")
+    args = parse_args(
+        [
+            "--restart",
+            "--output-prefix",
+            str(tmp_path),
+            "--container-runtime=local",
+            "--passing-versions",
+            "jax:jax-good,xla:xla-good",
+            "--failing-versions",
+            "jax:jax-bad,xla:xla-good",
+            "test-command",
+        ]
+    )
+    tool = TriageTool(args, logging.getLogger("triage-restart-test"))
+
+    failed = tool._test_output_directory("local", {"jax": "jax-good", "#rep": "0"})
+    (failed / "partial-output.log").write_text("failed")
+    retry = tool._test_output_directory(
+        "local", {"jax": "jax-good", "#rep": "0"}, overwrite=True
+    )
+
+    assert retry == failed
+    assert retry.name.endswith("#rep-0")
+    assert not (retry / "partial-output.log").exists()
+
+
+def test_container_output_directory_without_versions(tmp_path):
+    args = parse_args(
+        [
+            "--output-prefix",
+            str(tmp_path),
+            "--container-runtime=local",
+            "--passing-versions",
+            "jax:jax-good,xla:xla-good",
+            "--failing-versions",
+            "jax:jax-bad,xla:xla-good",
+            "test-command",
+        ]
+    )
+    tool = TriageTool(args, logging.getLogger("triage-restart-test"))
+
+    out_dir = tool._test_output_directory("container-url", None)
+
+    assert out_dir.parent == tmp_path
+    assert out_dir.name.startswith("container-")
+
+
 def test_triage_tool_loads_restart_cache(tmp_path):
     good_dir = tmp_path / "good"
     bad_dir = tmp_path / "bad"

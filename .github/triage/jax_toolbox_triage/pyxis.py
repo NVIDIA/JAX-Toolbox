@@ -79,5 +79,9 @@ class PyxisContainer(Container):
     def exists(self) -> bool:
         # TODO: optimise to avoid an extra container creation (local-only,
         # nothing is re-downloaded) for each call to exists().
-        with self as worker:
-            return worker.exec(["true"]).returncode == 0
+        try:
+            with self as worker:
+                pass
+        except subprocess.CalledProcessError:
+            return False
+        return True

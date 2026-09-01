@@ -33,6 +33,51 @@ def wrap(metric_value: float) -> TestResult:
     )
 
 
+@pytest.mark.parametrize(
+    "passing_values,failing_values,expected_common_variance",
+    [
+        ([1.0], [0.0], True),
+        ([1.0, 1.1], [0.0], True),
+        ([1.0], [0.0, 0.1], True),
+        ([1.0, 1.1], [0.0, 0.1], False),
+    ],
+)
+def test_default_common_variance(
+    passing_values, failing_values, expected_common_variance
+):
+    classifier = MetricClassifier(
+        metric_name=_METRIC_NAME,
+        passing_values=passing_values,
+        failing_values=failing_values,
+    )
+
+    assert classifier.common_variance is expected_common_variance
+
+
+def test_multiple_seed_values_classify_failed_job_midpoint():
+    classifier = MetricClassifier(
+        metric_name="tflops_per_sec",
+        passing_values=[754.4, 762.883, 743.832, 757.912, 700.865],
+        failing_values=[671.022, 669.106, 672.826, 667.27, 666.808],
+    )
+    labelled_results = [
+        (ClassifiedTestOutcome.FAIL, 665.573),
+        (ClassifiedTestOutcome.FAIL, 674.853),
+        (ClassifiedTestOutcome.PASS, 706.069),
+        (ClassifiedTestOutcome.PASS, 716.882),
+    ]
+    for label, value in labelled_results:
+        result = wrap(value)
+        result.metrics = {"tflops_per_sec": value}
+        outcome = classifier([result])
+        if outcome == ClassifiedTestOutcome.AMBIGUOUS:
+            classifier.add_data_with_label([result], label)
+
+    midpoint = wrap(708.014)
+    midpoint.metrics = {"tflops_per_sec": 708.014}
+    assert classifier([midpoint]) == ClassifiedTestOutcome.PASS
+
+
 @pytest.mark.parametrize("random_seed", range(4))
 # How many labelled values to seed the classifier with.
 @pytest.mark.parametrize("seed_values", [2, 4])

@@ -7,8 +7,12 @@ import json
 import logging
 import pathlib
 import platform
+import shlex
+import shutil
+import tempfile
 import time
-from typing import Dict, Tuple, Union, Any, Optional, Set
+import urllib.parse
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from .container import Container
 from .logic import (
@@ -49,6 +53,55 @@ class InconsistentResults(Exception):
     pass
 
 
+def _bounded_tag_suffix(container_registry: Optional[str], tag_suffix: str) -> str:
+    """Keep the complete Docker tag within its 128-character limit."""
+    if container_registry is None:
+        return tag_suffix
+
+    registry_leaf = container_registry.rsplit("/", 1)[-1]
+    tag_prefix = registry_leaf.split(":", 1)[1] if ":" in registry_leaf else ""
+    max_suffix_length = 128 - len(tag_prefix)
+    if len(tag_suffix) <= max_suffix_length:
+        return tag_suffix
+
+    digest = hashlib.sha1(tag_suffix.encode()).hexdigest()[:12]
+    return f"{tag_suffix[:max_suffix_length - len(digest) - 1]}-{digest}"
+
+
+def _remote_without_credentials(
+    remote: str,
+) -> Tuple[str, Optional[Tuple[str, str, str]]]:
+    """Return a URL safe for build arguments and optional netrc credentials."""
+    parsed = urllib.parse.urlsplit(remote)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or parsed.hostname is None
+        or parsed.username is None
+    ):
+        return remote, None
+
+    hostname = parsed.hostname
+    netloc = f"[{hostname}]" if ":" in hostname else hostname
+    if parsed.port is not None:
+        netloc += f":{parsed.port}"
+    sanitized = urllib.parse.urlunsplit(parsed._replace(netloc=netloc))
+    credentials = (
+        hostname,
+        urllib.parse.unquote(parsed.username),
+        urllib.parse.unquote(parsed.password or ""),
+    )
+    return sanitized, credentials
+
+
+def _git_fetch_refs(version: str, cherry_picks: List[str]) -> List[str]:
+    """Return every object needed to check out and cherry-pick a version."""
+    refs = [version]
+    for revision in cherry_picks:
+        start, separator, end = revision.partition("..")
+        refs.extend([start, end] if separator else [revision])
+    return list(dict.fromkeys(refs))
+
+
 class TriageTool:
     """
     This is the main class that orchestrates the whole triage process.
@@ -87,12 +140,16 @@ class TriageTool:
 
     def _version_slug(self, url: str, versions: Dict[str, str]) -> str:
         hash_chars = 8
-        components = {"container": hashlib.sha1(url.encode()).hexdigest()}
+        components = {"container": [hashlib.sha1(url.encode()).hexdigest()]}
         components.update(versions)
-        return "-".join(f"{k}-{v[:hash_chars]}" for k, v in components.items())
+        return "-".join(f"{k}-{'_'.join(v[:hash_chars] for v in vs)}" for k, vs in components.items())
 
     def _test_output_directory(
-        self, url: str, versions: Union[Dict[str, str], None]
+        self,
+        url: str,
+        versions: Union[Dict[str, str], None],
+        *,
+        overwrite: bool = False,
     ) -> pathlib.Path:
         """
         Create a directory for test output based on the container URL and versions.
@@ -103,9 +160,15 @@ class TriageTool:
         Returns:
             pathlib.Path: The path to the output directory.
         """
-        out_dirname = self._version_slug(url=url, versions=versions or {})
+        out_dirname = self._version_slug(
+            url=url,
+            versions={k: [v] for k, v in (versions or {}).items()},
+        )
         out_dir = self.args.output_prefix / out_dirname
-        if out_dir.exists() and self.args.restart:
+        if out_dir.exists() and overwrite:
+            self.logger.info(f"Removing failed test output before retry: {out_dir}")
+            shutil.rmtree(out_dir)
+        elif out_dir.exists() and self.args.restart:
             base_out_dir = out_dir
             n = 1
             while out_dir.exists():
@@ -463,19 +526,24 @@ class TriageTool:
         with open(out_dir / "test.log", "w") as log:
             log.write(result.stdout)
         metrics = {_EXIT_CODE_METRIC: result.returncode}
-        if self.args.metric_name is None:
-            # For non-metric triage there is always a result: the exit code
-            result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
-        else:
-            # metric-based triage
-            metrics_file = out_dir / "metrics.json"
+        metrics_file = out_dir / "metrics.json"
+        if self.args.container_runtime == "plugin" or self.args.metric_name is not None:
+            # A plugin distinguishes its own infrastructure failure from a
+            # completed workload failure by omitting exit_code. A missing or
+            # invalid metrics file is likewise not a workload exit code and is
+            # handled by the normal missing-metric retry.
             try:
                 with open(metrics_file) as ifile:
-                    metrics.update(json.load(ifile))
+                    metrics = json.load(ifile)
                 result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
             except Exception as e:
+                metrics = {}
                 result_enum = TestExecutionOutcome.TEST_ERROR
                 self.logger.fatal(f"Failed to extract metrics: {e}")
+        else:
+            assert self.args.metric_name is None
+            # For non-metric triage there is always a result: the exit code
+            result_enum = TestExecutionOutcome.TEST_YIELDED_RESULTS
         self.logger.info(
             f"Test completed in {duration:.1f}s with metric values {metrics} in {container_url}"
         )
@@ -494,6 +562,7 @@ class TriageTool:
         versions: Dict[str, str],
         test_repetition: int = 0,
         test_output_log_level: int = logging.DEBUG,
+        repeating_test_repetition: bool = False,
     ) -> TestResult:
         """
         The main body of the bisection loop. Update JAX/XLA/... versions, rebuild, and
@@ -503,12 +572,16 @@ class TriageTool:
         Args:
             versions (dict): The versions of the software packages to use.
             test_output_log_level (int): The log level for test output.
+            repeating_test_repetition (bool): Whether this intentionally retries the
+                same test_repetition value.
 
         Returns:
             TestResult: The result of the test, including whether it passed and the output.
         """
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
+        git_credentials = {}
+        push_intermediate_containers = self.args.container_runtime == "plugin"
         for package in sorted(self.dynamic_packages):
             version = versions[package]
             if self.bisection_versions.get(package) == version:
@@ -533,6 +606,27 @@ class TriageTool:
                     f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
                 )
                 git_commands.append("git stash")
+                remote = self.args.override_remotes.get(package, "origin")
+                if push_intermediate_containers:
+                    remote, credentials = _remote_without_credentials(remote)
+                    if credentials is not None:
+                        hostname, username, password = credentials
+                        existing = git_credentials.setdefault(
+                            hostname, (username, password)
+                        )
+                        if existing != (username, password):
+                            raise ValueError(
+                                f"Conflicting Git credentials for {hostname}"
+                            )
+                fetch_refs = _git_fetch_refs(
+                    version, self.args.cherry_pick.get(package, [])
+                )
+                git_commands.append(
+                    "git fetch --no-tags "
+                    + shlex.quote(remote)
+                    + " "
+                    + " ".join(shlex.quote(ref) for ref in fetch_refs)
+                )
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")
                 for cherry_pick_range in self.args.cherry_pick.get(package, []):
@@ -568,12 +662,12 @@ class TriageTool:
         out_dir = self._test_output_directory(
             self.bisection_url,
             versions=brief_versions,
+            overwrite=repeating_test_repetition,
         )
         change_str = " ".join(changed) if len(changed) else "<nothing>"
         info_str = f"Checking out {change_str}"
         if len(skipped):
             info_str += f", leaving {' '.join(skipped)} unchanged"
-        push_intermediate_containers = self.args.container_runtime == "plugin"
         with (
             contextlib.nullcontext()
             if push_intermediate_containers
@@ -589,10 +683,10 @@ class TriageTool:
                 # Not needed if we are pushing a container, because the local cache is not
                 # included in it.
                 build_cmds.append("bazel clean --expunge")
+            build_jax_cmd = ["build-jax.sh"] + self.args.extra_build_jax_args
             if self.args.bazel_cache:
-                build_cmds.append(f"build-jax.sh --bazel-cache={self.args.bazel_cache}")
-            else:
-                build_cmds.append("build-jax.sh")
+                build_jax_cmd.append(f"--bazel-cache={self.args.bazel_cache}")
+            build_cmds.append(' '.join(build_jax_cmd))
             if not self.args.exclude_transformer_engine:
                 if len(self.args.transformer_engine_ccache_env):
                     build_cmds.append(
@@ -607,12 +701,15 @@ class TriageTool:
                     self._version_slug(
                         self.bisection_url,
                         versions={
-                            k: v
+                            k: [v] + self.args.cherry_pick.get(k, [])
                             for k, v in brief_versions.items()
                             if k != _REPETITION_KEY
                         },
                     )
                     + f"-{platform.machine()}"
+                )
+                tag_suffix = _bounded_tag_suffix(
+                    self.args.container_registry, tag_suffix
                 )
                 if self.args.container_registry is None:
                     # Do not push, everything local.
@@ -629,12 +726,22 @@ class TriageTool:
                     if DockerContainer(
                         container_name, logger=self.logger, mounts=[]
                     ).exists():
-                        command = [
-                            "echo",
-                            f"Skipping building {container_name} because it already exists",
-                        ]
-                    else:
-                        # TODO: organise this better to encourage layer sharing
+                        return run_and_log(
+                            [
+                                "echo",
+                                f"Skipping building {container_name} because it already exists",
+                            ],
+                            logger=self.logger,
+                            stderr="interleaved",
+                        )
+
+                    # TODO: organise this better to encourage layer sharing
+                    netrc_context = (
+                        tempfile.NamedTemporaryFile(mode="w", encoding="utf-8")
+                        if git_credentials
+                        else contextlib.nullcontext()
+                    )
+                    with netrc_context as netrc_file:
                         command = [
                             "docker",
                             "buildx",
@@ -648,13 +755,29 @@ class TriageTool:
                             str(data_files_dir / "Dockerfile.triage-tool"),
                             str(data_files_dir),
                         ]
+                        if netrc_file is not None:
+                            for hostname, (username, password) in sorted(
+                                git_credentials.items()
+                            ):
+                                netrc_file.write(
+                                    f"machine {hostname}\n"
+                                    f"login {username}\n"
+                                    f"password {password}\n"
+                                )
+                            netrc_file.flush()
+                            command.extend(
+                                [
+                                    "--secret",
+                                    f"id=git-netrc,src={netrc_file.name}",
+                                ]
+                            )
                         if self.args.container_registry is not None:
                             command.append("--push")
-                    return run_and_log(
-                        command,
-                        logger=self.logger,
-                        stderr="interleaved",
-                    )
+                        return run_and_log(
+                            command,
+                            logger=self.logger,
+                            stderr="interleaved",
+                        )
 
                 def _test():
                     return (
@@ -932,6 +1055,8 @@ class TriageTool:
                 confirmation_iterations=self.args.confirmation_iterations,
                 result_cache=result_cache,
                 classifier=classifier,
+                metric_name=self.args.metric_name,
+                missing_metric_retries=self.args.missing_metric_retries,
             )
         except CouldNotReproduceFailure as e:
             if (

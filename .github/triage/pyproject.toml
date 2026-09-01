@@ -12,6 +12,9 @@ requires-python = ">= 3.8"
 [project.scripts]
 jax-toolbox-triage = "jax_toolbox_triage:main"
 
+[tool.setuptools.package-data]
+jax_toolbox_triage = ["data_files/Dockerfile.triage-tool"]
+
 [dependency-groups]
 dev = [
     "mypy>=1.14.1",
