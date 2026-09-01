@@ -8,7 +8,9 @@ import logging
 import pathlib
 import platform
 import shlex
+import tempfile
 import time
+import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
@@ -51,6 +53,40 @@ from .versions import get_versions_dirs_env
 
 class InconsistentResults(Exception):
     pass
+
+
+def _remote_without_credentials(
+    remote: str,
+) -> Tuple[str, Optional[Tuple[str, str, str]]]:
+    """Return a URL safe for build arguments and optional netrc credentials."""
+    parsed = urllib.parse.urlsplit(remote)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or parsed.hostname is None
+        or parsed.username is None
+    ):
+        return remote, None
+
+    hostname = parsed.hostname
+    netloc = f"[{hostname}]" if ":" in hostname else hostname
+    if parsed.port is not None:
+        netloc += f":{parsed.port}"
+    sanitized = urllib.parse.urlunsplit(parsed._replace(netloc=netloc))
+    credentials = (
+        hostname,
+        urllib.parse.unquote(parsed.username),
+        urllib.parse.unquote(parsed.password or ""),
+    )
+    return sanitized, credentials
+
+
+def _git_fetch_refs(version: str, cherry_picks: List[str]) -> List[str]:
+    """Return every object needed to check out and cherry-pick a version."""
+    refs = [version]
+    for revision in cherry_picks:
+        start, separator, end = revision.partition("..")
+        refs.extend([start, end] if separator else [revision])
+    return list(dict.fromkeys(refs))
 
 
 @dataclass(frozen=True)
@@ -522,6 +558,8 @@ class TriageTool:
         """
         # Amortise container startup overhead by batching together git commands
         git_commands, changed, skipped = [], [], []
+        git_credentials: Dict[str, Tuple[str, str]] = {}
+        push_intermediate_containers = self.args.container_runtime == "plugin"
         for package in sorted(self.dynamic_packages):
             version = versions[package]
             if self.bisection_versions.get(package) == version:
@@ -546,15 +584,34 @@ class TriageTool:
                     f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
                 )
                 git_commands.append("git stash")
-                if package in self.commits_to_fetch:
-                    remote = self.args.override_remotes.get(package, "origin")
-                    commits = sorted(self.commits_to_fetch[package])
-                    git_commands.append(
-                        "git fetch "
-                        + shlex.quote(remote)
-                        + " "
-                        + " ".join(map(shlex.quote, commits))
+                remote = self.args.override_remotes.get(package, "origin")
+                if push_intermediate_containers:
+                    remote, credentials = _remote_without_credentials(remote)
+                    if credentials is not None:
+                        hostname, username, password = credentials
+                        existing = git_credentials.setdefault(
+                            hostname, (username, password)
+                        )
+                        if existing != (username, password):
+                            raise ValueError(
+                                f"Conflicting Git credentials for {hostname}"
+                            )
+                fetch_refs = _git_fetch_refs(
+                    version, self.args.cherry_pick.get(package, [])
+                )
+                # Candidate commits may have been fetched only in the disposable
+                # preparation container. Include them when building a fresh image.
+                fetch_refs = list(
+                    dict.fromkeys(
+                        fetch_refs + sorted(self.commits_to_fetch.get(package, set()))
                     )
+                )
+                git_commands.append(
+                    "git fetch --no-tags "
+                    + shlex.quote(remote)
+                    + " "
+                    + " ".join(shlex.quote(ref) for ref in fetch_refs)
+                )
                 # this is a checkout on the main branch
                 git_commands.append(f"git checkout {version}")
                 for cherry_pick_range in self.args.cherry_pick.get(package, []):
@@ -595,7 +652,6 @@ class TriageTool:
         info_str = f"Checking out {change_str}"
         if len(skipped):
             info_str += f", leaving {' '.join(skipped)} unchanged"
-        push_intermediate_containers = self.args.container_runtime == "plugin"
         with (
             contextlib.nullcontext()
             if push_intermediate_containers
@@ -651,12 +707,21 @@ class TriageTool:
                     if DockerContainer(
                         container_name, logger=self.logger, mounts=[]
                     ).exists():
-                        command = [
-                            "echo",
-                            f"Skipping building {container_name} because it already exists",
-                        ]
-                    else:
-                        # TODO: organise this better to encourage layer sharing
+                        return run_and_log(
+                            [
+                                "echo",
+                                f"Skipping building {container_name} because it already exists",
+                            ],
+                            logger=self.logger,
+                            stderr="interleaved",
+                        )
+
+                    # TODO: organise this better to encourage layer sharing
+                    with (
+                        tempfile.NamedTemporaryFile(mode="w", encoding="utf-8")
+                        if git_credentials
+                        else contextlib.nullcontext()
+                    ) as netrc_file:
                         command = [
                             "docker",
                             "buildx",
@@ -670,13 +735,29 @@ class TriageTool:
                             str(data_files_dir / "Dockerfile.triage-tool"),
                             str(data_files_dir),
                         ]
+                        if netrc_file is not None:
+                            for hostname, (username, password) in sorted(
+                                git_credentials.items()
+                            ):
+                                netrc_file.write(
+                                    f"machine {hostname}\n"
+                                    f"login {username}\n"
+                                    f"password {password}\n"
+                                )
+                            netrc_file.flush()
+                            command.extend(
+                                [
+                                    "--secret",
+                                    f"id=git-netrc,src={netrc_file.name}",
+                                ]
+                            )
                         if self.args.container_registry is not None:
                             command.append("--push")
-                    return run_and_log(
-                        command,
-                        logger=self.logger,
-                        stderr="interleaved",
-                    )
+                        return run_and_log(
+                            command,
+                            logger=self.logger,
+                            stderr="interleaved",
+                        )
 
                 def _test():
                     return (
