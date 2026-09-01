@@ -6,8 +6,7 @@ from jax_toolbox_triage.triage_tool import (
 
 def test_remote_credentials_are_removed_from_build_url():
     remote = (
-        "https://gitlab-ci-token:secret-token@"
-        "gitlab-master.nvidia.com/dl/jax/jax.git"
+        "https://gitlab-ci-token:secret-token@gitlab-master.nvidia.com/dl/jax/jax.git"
     )
 
     sanitized, credentials = _remote_without_credentials(remote)

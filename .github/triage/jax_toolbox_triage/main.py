@@ -1,6 +1,6 @@
 from .args import parse_args
-from .utils import get_logger
 from .triage_tool import TriageTool
+from .utils import get_logger
 
 
 def main() -> None:

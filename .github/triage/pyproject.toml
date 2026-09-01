@@ -26,3 +26,6 @@ dev = [
 [[tool.mypy.overrides]]
 module = ["uncertainties.*"]
 follow_untyped_imports = true
+
+[tool.ruff.lint]
+ignore = ["B017", "B023", "BLE001", "C417", "DTZ001", "DTZ005", "DTZ011", "TRY002"]

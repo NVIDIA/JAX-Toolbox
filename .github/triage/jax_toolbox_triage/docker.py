@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import pathlib
 import shutil
@@ -14,7 +16,7 @@ class DockerContainer(Container):
         url: str,
         *,
         logger: logging.Logger,
-        mounts: typing.List[typing.Tuple[pathlib.Path, pathlib.Path]],
+        mounts: list[tuple[pathlib.Path, pathlib.Path]],
     ):
         super().__init__(logger=logger)
         self._mount_args = []
@@ -26,7 +28,7 @@ class DockerContainer(Container):
         self._logger.debug(f"Launching {self}")
         have_gpus = (
             shutil.which("nvidia-smi") is not None
-            and subprocess.run(["nvidia-smi"]).returncode == 0
+            and subprocess.run(["nvidia-smi"], check=False).returncode == 0
         )
         if not have_gpus:
             self._logger.warning("No GPUs detected!")
@@ -76,11 +78,11 @@ class DockerContainer(Container):
 
     def exec(
         self,
-        command: typing.List[str],
+        command: list[str],
         *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir: typing.Optional[str] = None,
+        workdir: str | None = None,
         log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """

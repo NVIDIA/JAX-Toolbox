@@ -2,15 +2,17 @@ import collections
 import datetime
 import itertools
 import logging
-import pytest
 import random
+
+import pytest
+
 from jax_toolbox_triage.logic import (
     _EXIT_CODE_METRIC,
     ClassifiedTestOutcome,
-    container_search,
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
+    container_search,
     version_cache_key,
     version_search,
 )
@@ -19,8 +21,10 @@ from jax_toolbox_triage.metric_classifier import MetricClassifier
 _METRIC_NAME = "metric"
 
 
-def wrap(b, versions={}, build_failure=False, metrics=None):
+def wrap(b, versions=None, build_failure=False, metrics=None):
     # TODO: return TestExecutionOutcome.TEST_ERROR sometimes
+    if versions is None:
+        versions = {}
     if metrics is None:
         metrics = {}
     metrics[_EXIT_CODE_METRIC] = 0 if b else 1

@@ -1,8 +1,9 @@
+import pathlib
+import random
 from collections import defaultdict
 from functools import partial
-import pathlib
+
 import pytest
-import random
 
 from jax_toolbox_triage.logic import (
     ClassifiedTestOutcome,

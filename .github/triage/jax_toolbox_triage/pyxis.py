@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import pathlib
 import subprocess
@@ -14,7 +16,7 @@ class PyxisContainer(Container):
         url: str,
         *,
         logger: logging.Logger,
-        mounts: typing.List[typing.Tuple[pathlib.Path, pathlib.Path]],
+        mounts: list[tuple[pathlib.Path, pathlib.Path]],
     ):
         super().__init__(logger=logger)
         mount_str = ",".join(map(lambda t: f"{t[0]}:{t[1]}", mounts))
@@ -43,11 +45,11 @@ class PyxisContainer(Container):
 
     def exec(
         self,
-        command: typing.List[str],
+        command: list[str],
         *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir: typing.Optional[str] = None,
+        workdir: str | None = None,
         log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """
@@ -80,7 +82,7 @@ class PyxisContainer(Container):
         # TODO: optimise to avoid an extra container creation (local-only,
         # nothing is re-downloaded) for each call to exists().
         try:
-            with self as worker:
+            with self as _worker:
                 pass
         except subprocess.CalledProcessError:
             return False
