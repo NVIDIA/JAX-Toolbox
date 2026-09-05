@@ -36,6 +36,22 @@ def parse_version_argument(s: str) -> dict[str, str]:
     return ret
 
 
+def parse_commit_argument(s: str) -> dict[str, str]:
+    try:
+        versions = parse_version_argument(s)
+    except (AssertionError, ValueError) as error:
+        raise argparse.ArgumentTypeError("invalid --commit value") from error
+    if any(character.isspace() for character in s) or any(
+        not package
+        or package.startswith("-")
+        or not revision
+        or revision.startswith("-")
+        for package, revision in versions.items()
+    ):
+        raise argparse.ArgumentTypeError("invalid --commit value")
+    return versions
+
+
 def parse_override_remotes(s: str) -> dict[str, str]:
     """Function to parse the override remote
 
@@ -43,7 +59,7 @@ def parse_override_remotes(s: str) -> dict[str, str]:
         s: (str) e.g. https://<token>@host/repo.git
 
     Returns:
-        ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
+        ret: (dict[str, str]) Dictionary with software as key and git-url as value.
     """
     ret: dict[str, str] = {}
     for part in s.split(","):
@@ -238,6 +254,22 @@ def parse_args(args=None) -> argparse.Namespace:
         "--passing-commits",
         help="Deprecated alias for --passing-versions",
         type=parse_version_argument,
+    )
+    version_search_args.add_argument(
+        "--commit",
+        metavar="PACKAGE:REVISION[,PACKAGE:REFERENCE...]",
+        action="append",
+        type=parse_commit_argument,
+        help="""
+            Version vector suspected of introducing the regression. The first package
+            is the suspected culprit and any remaining packages are reference versions;
+            for example, jax:abc123,xla:def456 tests JAX abc123 and its first
+            parent with XLA def456 fixed. References not supplied explicitly are chosen
+            from the bisection histories by timestamp. If an unconfirmed candidate
+            vector lies within those histories, its observed result narrows the normal
+            version-level bisection across all packages. May be passed multiple times
+            to provide multiple candidate vectors.
+        """,
     )
     version_search_args.add_argument(
         "--cherry-pick",
@@ -435,9 +467,7 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), (
-            "For local runtime, --passing-versions and --failing-versions must be provided."
-        )
+        ), "For local runtime, --passing-versions and --failing-versions must be provided."
         assert (
             args.container is None
             and args.start_date is None
@@ -480,7 +510,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert args.container is not None, (
-            "--container must be passed for the container-level search"
-        )
+        assert (
+            args.container is not None
+        ), "--container must be passed for the container-level search"
     return args

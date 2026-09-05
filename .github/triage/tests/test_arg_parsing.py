@@ -74,6 +74,48 @@ def test_good_local_args():
     assert "xla" in args.failing_versions
 
 
+@pytest.mark.parametrize(
+    "commit,expected",
+    [
+        ("jax:0123456789abcdef", [{"jax": "0123456789abcdef"}]),
+        ("xla:0123456789abcdef", [{"xla": "0123456789abcdef"}]),
+        (
+            "jax:0123456789abcdef,xla:fedcba9876543210",
+            [{"jax": "0123456789abcdef", "xla": "fedcba9876543210"}],
+        ),
+    ],
+)
+def test_commit_argument(commit, expected):
+    args = parse_args(valid_start_end_container + ["--commit", commit] + test_command)
+    assert args.commit == expected
+
+
+def test_repeated_commit_arguments():
+    args = parse_args(
+        valid_start_end_container
+        + [
+            "--commit",
+            "jax:a,xla:b",
+            "--commit",
+            "xla:c,jax:d",
+        ]
+        + test_command
+    )
+    assert args.commit == [
+        {"jax": "a", "xla": "b"},
+        {"xla": "c", "jax": "d"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "commit",
+    ["", "-bad", "0123456789abcdef", "jax:", "jax:a,jax:b", "jax:a, xla:b"],
+)
+def test_bad_commit_argument(commit):
+    with pytest.raises(SystemExit):
+        parse_args(valid_start_end_container + ["--commit", commit] + test_command)
+
+
 def test_missing_metric_retries():
     assert parse_args(valid_local_args + test_command).missing_metric_retries == 1
     assert (

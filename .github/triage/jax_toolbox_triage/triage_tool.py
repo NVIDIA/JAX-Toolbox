@@ -14,6 +14,7 @@ import shutil
 import tempfile
 import time
 import urllib.parse
+from dataclasses import dataclass
 from typing import Any
 
 from .bisect import get_commit_history
@@ -25,12 +26,12 @@ from .logic import (
     _REPETITION_KEY,
     _WORKLOAD_VERSION_KEY,
     ClassifiedTestOutcome,
-    CouldNotReproduceFailure,
-    CouldNotReproduceSuccess,
+    CouldNotReproduceDesiredOutcome,
     ExecutionClassifier,
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
+    _get_versions,
     container_search,
     version_search,
 )
@@ -106,6 +107,15 @@ def _git_fetch_refs(version: str, cherry_picks: list[str]) -> list[str]:
     return list(dict.fromkeys(refs))
 
 
+@dataclass(frozen=True)
+class _CommitCandidate:
+    package: str
+    commit: str
+    parent: str
+    date: datetime.datetime
+    references: dict[str, str]
+
+
 class TriageTool:
     """
     This is the main class that orchestrates the whole triage process.
@@ -124,6 +134,7 @@ class TriageTool:
         self.package_dirs = None
         self.dynamic_packages = set()
         self.packages_with_scripts = set()
+        self.commits_to_fetch: dict[str, set[str]] = {}
         self.bazel_cache_mounts = prepare_bazel_cache_mounts(self.args.bazel_cache)
         self.check_success_before_failure = True
         self.restart_cache = (
@@ -183,9 +194,7 @@ class TriageTool:
             while out_dir.exists():
                 out_dir = base_out_dir.with_name(f"{base_out_dir.name}-restart-{n}")
                 n += 1
-        assert not out_dir.exists(), (
-            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
-        )
+        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -231,9 +240,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert container_url is not None, (
-            "Container URL must be provided if explicit versions are not set."
-        )
+        assert (
+            container_url is not None
+        ), "Container URL must be provided if explicit versions are not set."
 
         with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(
@@ -294,7 +303,8 @@ class TriageTool:
             for cherry_pick_range in cherry_pick_ranges:
                 if package not in self.args.cherry_pick:
                     self.args.cherry_pick[package] = []
-                self.args.cherry_pick[package].append(cherry_pick_range)
+                if cherry_pick_range not in self.args.cherry_pick[package]:
+                    self.args.cherry_pick[package].append(cherry_pick_range)
 
             assert all(
                 b[1] >= a[1]
@@ -628,6 +638,13 @@ class TriageTool:
                             )
                 fetch_refs = _git_fetch_refs(
                     version, self.args.cherry_pick.get(package, [])
+                )
+                # Candidate commits may have been fetched only in the disposable
+                # preparation container. Include them when building a fresh image.
+                fetch_refs = list(
+                    dict.fromkeys(
+                        fetch_refs + sorted(self.commits_to_fetch.get(package, set()))
+                    )
                 )
                 git_commands.append(
                     "git fetch --no-tags "
@@ -999,6 +1016,321 @@ class TriageTool:
         assert self.bisection_versions is not None
         return passing_versions, failing_versions
 
+    def _resolve_commit_candidates(
+        self,
+        worker: Container,
+        known_versions: dict[str, str],
+    ) -> list[_CommitCandidate]:
+        """Resolve candidate vectors while the preparation container is available."""
+        assert self.package_dirs is not None
+        candidates = []
+        for hint in self.args.commit or []:
+            package = next(iter(hint))
+            if package not in self.package_dirs:
+                raise ValueError(
+                    f"--commit culprit {package!r} is not a Git repository "
+                    "known to the triage environment"
+                )
+
+            resolved_versions = {}
+            parent = None
+            candidate_date = None
+            for hint_package, hint_revision in hint.items():
+                if hint_package not in known_versions:
+                    raise ValueError(
+                        f"--commit package {hint_package!r} does not have passing "
+                        "and failing endpoint versions"
+                    )
+                if hint_package not in self.package_dirs:
+                    # Non-Git packages can still be supplied as fixed references.
+                    resolved_versions[hint_package] = hint_revision
+                    if known_versions[hint_package] != hint_revision:
+                        self.dynamic_packages.add(hint_package)
+                    continue
+
+                directory = self.package_dirs[hint_package]
+                resolve_command = [
+                    "git",
+                    "rev-list",
+                    "--timestamp",
+                    "--parents",
+                    "-n",
+                    "1",
+                    hint_revision,
+                ]
+                commit_info = worker.exec(
+                    resolve_command,
+                    policy="once",
+                    stderr="separate",
+                    workdir=directory,
+                )
+                needs_fetch = commit_info.returncode != 0
+                if needs_fetch:
+                    worker.check_exec(
+                        [
+                            "git",
+                            "fetch",
+                            self.args.override_remotes.get(hint_package, "origin"),
+                            hint_revision,
+                        ],
+                        policy="once_per_container",
+                        stderr="separate",
+                        workdir=directory,
+                    )
+                    commit_info = worker.check_exec(
+                        resolve_command,
+                        policy="once",
+                        stderr="separate",
+                        workdir=directory,
+                    )
+
+                timestamp_commit_and_parents = commit_info.stdout.split()
+                if len(timestamp_commit_and_parents) < 2:
+                    raise ValueError(
+                        f"Could not resolve --commit {hint_package}:{hint_revision}"
+                    )
+                timestamp, resolved_commit, *parents = timestamp_commit_and_parents
+                resolved_versions[hint_package] = resolved_commit
+                if hint_package == package:
+                    if not parents:
+                        raise ValueError(
+                            f"--commit {resolved_commit} has no parent to test"
+                        )
+                    parent = parents[0]
+                    candidate_date = datetime.datetime.fromtimestamp(
+                        int(timestamp), datetime.timezone.utc
+                    )
+
+                if needs_fetch and self.args.container_runtime != "local":
+                    self.commits_to_fetch.setdefault(hint_package, set()).add(
+                        resolved_commit
+                    )
+                # Git references may differ from a static endpoint and still need to
+                # be checked out for direct validation.
+                self.dynamic_packages.add(hint_package)
+
+            assert parent is not None
+            assert candidate_date is not None
+            commit = resolved_versions.pop(package)
+            candidates.append(
+                _CommitCandidate(
+                    package=package,
+                    commit=commit,
+                    parent=parent,
+                    date=candidate_date,
+                    references=resolved_versions,
+                )
+            )
+            reference_text = "".join(
+                f", {reference_package} {reference_version}"
+                for reference_package, reference_version in resolved_versions.items()
+            )
+            self.logger.info(
+                f"Resolved --commit to {package} {commit}{reference_text}; "
+                f"the culprit's first parent is {parent}"
+            )
+        return candidates
+
+    def _candidate_configuration(
+        self,
+        candidate: _CommitCandidate,
+        package_versions: collections.OrderedDict,
+    ):
+        """Return the candidate vector and its indices in the package histories."""
+
+        def version_index(package, version):
+            if package not in package_versions:
+                raise ValueError(
+                    f"--commit package {package!r} is not in the bisection histories"
+                )
+            for index, (history_version, _) in enumerate(package_versions[package]):
+                if history_version == version:
+                    return index
+            return None
+
+        candidate_index = version_index(candidate.package, candidate.commit)
+        # Put the suspected culprit first so the existing timestamp-alignment logic
+        # chooses contemporary versions for all unspecified references.
+        ordered_histories = collections.OrderedDict(
+            [
+                (
+                    candidate.package,
+                    package_versions[candidate.package]
+                    if candidate_index is not None
+                    else [(candidate.commit, candidate.date)],
+                )
+            ]
+        )
+        ordered_histories.update(
+            (package, versions)
+            for package, versions in package_versions.items()
+            if package != candidate.package
+        )
+        versions, indices = _get_versions(
+            logger=self.logger,
+            primary=candidate.package,
+            primary_index=0 if candidate_index is None else candidate_index,
+            versions=ordered_histories,
+        )
+        can_narrow = candidate_index is not None
+
+        # Explicit references override the automatically aligned versions.
+        for package, version in candidate.references.items():
+            reference_index = version_index(package, version)
+            versions[package] = version
+            if reference_index is None:
+                can_narrow = False
+            else:
+                indices[package] = reference_index
+
+        return versions, indices if can_narrow else None, candidate.date
+
+    def _narrow_histories_from_candidate(
+        self,
+        package_versions: collections.OrderedDict,
+        indices: dict[str, int],
+        outcome: ClassifiedTestOutcome,
+    ) -> collections.OrderedDict:
+        """Narrow every history around a known passing or failing version vector."""
+        assert outcome in {
+            ClassifiedTestOutcome.PASS,
+            ClassifiedTestOutcome.FAIL,
+        }
+        narrowed = collections.OrderedDict()
+        for package, versions in package_versions.items():
+            index = indices[package]
+            narrowed[package] = (
+                versions[index:]
+                if outcome == ClassifiedTestOutcome.PASS
+                else versions[: index + 1]
+            )
+
+        if sum(map(len, narrowed.values())) == len(narrowed):
+            self.logger.warning(
+                "The candidate-derived range contains no versions to search; "
+                "retaining the previous bisection range"
+            )
+            return package_versions
+
+        old_sizes = {
+            package: len(versions) for package, versions in package_versions.items()
+        }
+        new_sizes = {package: len(versions) for package, versions in narrowed.items()}
+        self.logger.info(
+            f"Narrowed package histories using a known {outcome} candidate vector: "
+            f"{old_sizes} -> {new_sizes}"
+        )
+        return narrowed
+
+    def _check_candidate_commit(
+        self,
+        *,
+        candidate: _CommitCandidate,
+        package_versions: collections.OrderedDict,
+        result_cache,
+        classifier: ExecutionClassifier,
+        metric_name: str | None = None,
+        missing_metric_retries: int = 1,
+    ):
+        """Check one ``--commit`` vector and narrow histories if it is wrong.
+
+        A direct result is returned when the candidate fails and its parent passes.
+        Otherwise, the returned histories define the ordinary bisection range.
+        """
+        package = candidate.package
+        commit = candidate.commit
+        parent = candidate.parent
+        candidate_versions, candidate_indices, candidate_date = (
+            self._candidate_configuration(candidate, package_versions)
+        )
+
+        # Hold every reference fixed so the candidate and its parent differ only in
+        # the package named first in the --commit vector.
+        candidate_range: collections.OrderedDict = collections.OrderedDict(
+            [(package, [(parent, candidate_date), (commit, candidate_date)])]
+        )
+        candidate_range.update(
+            (other_package, [(version, candidate_date)])
+            for other_package, version in candidate_versions.items()
+            if other_package != package
+        )
+
+        reference_text = "".join(
+            f", {reference_package} {reference_version}"
+            for reference_package, reference_version in candidate_versions.items()
+            if reference_package != package
+        )
+        self.logger.info(
+            f"Validating suspected culprit {package} {commit} against parent "
+            f"{parent}{reference_text}"
+        )
+        try:
+            candidate_result = version_search(
+                versions=candidate_range,
+                build_and_test=self._build_and_test,
+                logger=self.logger,
+                skip_precondition_checks=False,
+                check_success_before_failure=False,
+                confirmation_iterations=self.args.confirmation_iterations,
+                result_cache=result_cache,
+                classifier=classifier,
+                metric_name=metric_name,
+                missing_metric_retries=missing_metric_retries,
+            )
+        except CouldNotReproduceDesiredOutcome as error:
+            if error.expected_outcome == ClassifiedTestOutcome.PASS:
+                if candidate_indices is None:
+                    self.logger.info(
+                        "The candidate or an explicit reference is outside the "
+                        "current histories; retaining the current bisection range"
+                    )
+                    return None, package_versions
+                # The candidate failed, but its parent did not pass. Use the parent as
+                # the tighter failing pivot when it belongs to the current history.
+                failing_indices = candidate_indices.copy()
+                if error.actual_outcome == ClassifiedTestOutcome.FAIL:
+                    for index, (version, _) in enumerate(package_versions[package]):
+                        if version == parent and index < candidate_indices[package]:
+                            failing_indices[package] = index
+                            break
+                self.logger.info(
+                    "The candidate was not the transition; narrowing the bisection "
+                    "with the known failing candidate vector"
+                )
+                return None, self._narrow_histories_from_candidate(
+                    package_versions,
+                    failing_indices,
+                    ClassifiedTestOutcome.FAIL,
+                )
+            assert error.expected_outcome == ClassifiedTestOutcome.FAIL
+            if error.actual_outcome == ClassifiedTestOutcome.PASS:
+                if candidate_indices is None:
+                    self.logger.info(
+                        "The candidate or an explicit reference is outside the "
+                        "current histories; retaining the current bisection range"
+                    )
+                    return None, package_versions
+                # A passing candidate is a contemporary known-good pivot, so discard
+                # all older portions of every package history.
+                self.logger.info(
+                    "The candidate passed; narrowing the bisection with the known "
+                    "passing candidate vector"
+                )
+                return None, self._narrow_histories_from_candidate(
+                    package_versions,
+                    candidate_indices,
+                    ClassifiedTestOutcome.PASS,
+                )
+            # A candidate that cannot be tested provides no ordering information.
+            self.logger.info(
+                "The candidate did not yield a test result; retaining the current "
+                "version-level range"
+            )
+            return None, package_versions
+        else:
+            # Candidate fails, parent passes: culprit confirmed.
+            return candidate_result, package_versions
+
     def run_version_bisection(
         self,
         passing_versions: dict[str, str],
@@ -1023,8 +1355,12 @@ class TriageTool:
             )
         else:
             classifier = ExitCodeClassifier()
+
+        candidates = []
         # Prepare the container for the bisection
         with self._make_container(self.bisection_url) as worker:
+            if self.args.commit is not None:
+                candidates = self._resolve_commit_candidates(worker, passing_versions)
             package_versions = self._gather_histories(
                 worker, passing_versions, failing_versions
             )
@@ -1040,8 +1376,12 @@ class TriageTool:
             for package in packages_missing_scripts:
                 del package_versions[package]
 
-        # Run the version-level bisection
-        self.logger.info("Running version-level bisection...")
+        # Validate that every package named in a candidate can participate in the
+        # bisection. Candidate versions outside the range can still be checked
+        # directly, but their outcomes are not used to narrow the histories.
+        for candidate in candidates:
+            self._candidate_configuration(candidate, package_versions)
+
         result_cache = {
             key: result
             for (section, key), result in self.restart_cache.items()
@@ -1052,85 +1392,114 @@ class TriageTool:
                 f"Loaded {len(result_cache)} completed version-level result(s) "
                 f"from {self.args.output_prefix / 'summary.json'}"
             )
-        try:
-            result, last_known_good, first_known_bad = version_search(
-                versions=package_versions,
-                build_and_test=self._build_and_test,
-                logger=self.logger,
-                skip_precondition_checks=self.args.skip_precondition_checks,
-                check_success_before_failure=self.check_success_before_failure,
-                confirmation_iterations=self.args.confirmation_iterations,
+
+        result = None
+        last_known_good = None
+        first_known_bad = None
+        for candidate in candidates:
+            candidate_result, package_versions = self._check_candidate_commit(
+                candidate=candidate,
+                package_versions=package_versions,
                 result_cache=result_cache,
                 classifier=classifier,
                 metric_name=self.args.metric_name,
                 missing_metric_retries=self.args.missing_metric_retries,
             )
-        except CouldNotReproduceFailure as e:
-            if (
-                self.args.failing_container is not None
-                and self.bisection_url == self.args.passing_container
-            ):
-                # Could not reproduce failing with 'bad' versions in the 'good' container. Triage
-                # will not succeed, but before exiting we can check if we can even reproduce
-                # failure in the 'bad' container.
-                self.logger.fatal(
-                    f"Checking if failure can be reproduced in {self.args.failing_container}..."
-                )
-                check_fail = self._check_container_by_url(
-                    self.args.failing_container, test_output_log_level=logging.INFO
-                )
-                check_fail_outcome = classifier([check_fail])
-                if check_fail_outcome == ClassifiedTestOutcome.FAIL:
-                    self.logger.fatal(
-                        f"Reproduced failure in {self.args.failing_container} after failing to "
-                        f"reproduce in {self.bisection_url}. This may mean the failure is due to "
-                        "a variable not visible to the bisection tool."
-                    )
-                    raise InconsistentResults(
-                        f"Reproduced failure in {self.args.failing_container} but not {self.bisection_url}"
-                    ) from e
-                else:
-                    assert check_fail_outcome == ClassifiedTestOutcome.PASS, (
-                        check_fail_outcome
-                    )
-                    raise CouldNotReproduceFailure(
-                        f"Could not reproduce failure with 'bad' container ({self.args.failing_container}, {check_fail.result})"
-                    ) from e
+            if candidate_result is not None:
+                result, last_known_good, first_known_bad = candidate_result
+                break
 
-            raise
-        except CouldNotReproduceSuccess as e:
-            if (
-                self.args.passing_container is not None
-                and self.bisection_url == self.args.failing_container
-            ):
-                # Could not reproduce pass with 'good' versions in the 'bad' container. Triage
-                # will not succeed, but before exiting we can check if success is reproducible
-                # in the 'good' container.
-                self.logger.fatal(
-                    f"Checking if success can be reproduced in {self.args.passing_container}..."
+        if result is None:
+            self.logger.info("Running version-level bisection...")
+            try:
+                result, last_known_good, first_known_bad = version_search(
+                    versions=package_versions,
+                    build_and_test=self._build_and_test,
+                    logger=self.logger,
+                    skip_precondition_checks=self.args.skip_precondition_checks,
+                    check_success_before_failure=self.check_success_before_failure,
+                    confirmation_iterations=self.args.confirmation_iterations,
+                    result_cache=result_cache,
+                    classifier=classifier,
+                    metric_name=self.args.metric_name,
+                    missing_metric_retries=self.args.missing_metric_retries,
                 )
-                check_pass = self._check_container_by_url(
-                    self.args.passing_container, test_output_log_level=logging.INFO
-                )
-                check_pass_outcome = classifier([check_pass])
-                if check_pass_outcome == ClassifiedTestOutcome.PASS:
+            except CouldNotReproduceDesiredOutcome as e:
+                if e.expected_outcome == ClassifiedTestOutcome.FAIL:
+                    if not (
+                        self.args.failing_container is not None
+                        and self.bisection_url == self.args.passing_container
+                    ):
+                        raise
+                    # Could not reproduce failing with 'bad' versions in the 'good' container. Triage
+                    # will not succeed, but before exiting we can check if we can even reproduce
+                    # failure in the 'bad' container.
                     self.logger.fatal(
-                        f"Reproduced success in {self.args.passing_container} after failing to "
-                        f"reproduce in {self.bisection_url}. This may mean the failure is due to "
-                        "a variable not visible to the bisection tool."
+                        f"Checking if failure can be reproduced in {self.args.failing_container}..."
                     )
-                    raise InconsistentResults(
-                        f"Reproduced success in {self.args.passing_container} but not {self.bisection_url}"
-                    ) from e
+                    check_fail = self._check_container_by_url(
+                        self.args.failing_container,
+                        test_output_log_level=logging.INFO,
+                    )
+                    check_fail_outcome = classifier([check_fail])
+                    if check_fail_outcome == ClassifiedTestOutcome.FAIL:
+                        self.logger.fatal(
+                            f"Reproduced failure in {self.args.failing_container} after failing to "
+                            f"reproduce in {self.bisection_url}. This may mean the failure is due to "
+                            "a variable not visible to the bisection tool."
+                        )
+                        raise InconsistentResults(
+                            f"Reproduced failure in {self.args.failing_container} but not {self.bisection_url}"
+                        ) from e
+                    else:
+                        assert (
+                            check_fail_outcome == ClassifiedTestOutcome.PASS
+                        ), check_fail_outcome
+                        raise CouldNotReproduceDesiredOutcome(
+                            f"Could not reproduce failure with 'bad' container ({self.args.failing_container}, {check_fail.result})",
+                            expected_outcome=ClassifiedTestOutcome.FAIL,
+                            actual_outcome=check_fail_outcome,
+                        ) from e
                 else:
-                    assert check_pass_outcome == ClassifiedTestOutcome.FAIL, (
-                        check_pass_outcome
+                    assert e.expected_outcome == ClassifiedTestOutcome.PASS
+                    if not (
+                        self.args.passing_container is not None
+                        and self.bisection_url == self.args.failing_container
+                    ):
+                        raise
+                    # Could not reproduce pass with 'good' versions in the 'bad' container. Triage
+                    # will not succeed, but before exiting we can check if success is reproducible
+                    # in the 'good' container.
+                    self.logger.fatal(
+                        f"Checking if success can be reproduced in {self.args.passing_container}..."
                     )
-                    raise CouldNotReproduceSuccess(
-                        f"Could not reproduce success with 'good' container ({self.args.passing_container}, {check_pass.result})"
-                    ) from e
-            raise
-        # Write final summary
+                    check_pass = self._check_container_by_url(
+                        self.args.passing_container,
+                        test_output_log_level=logging.INFO,
+                    )
+                    check_pass_outcome = classifier([check_pass])
+                    if check_pass_outcome == ClassifiedTestOutcome.PASS:
+                        self.logger.fatal(
+                            f"Reproduced success in {self.args.passing_container} after failing to "
+                            f"reproduce in {self.bisection_url}. This may mean the failure is due to "
+                            "a variable not visible to the bisection tool."
+                        )
+                        raise InconsistentResults(
+                            f"Reproduced success in {self.args.passing_container} but not {self.bisection_url}"
+                        ) from e
+                    else:
+                        assert (
+                            check_pass_outcome == ClassifiedTestOutcome.FAIL
+                        ), check_pass_outcome
+                        raise CouldNotReproduceDesiredOutcome(
+                            f"Could not reproduce success with 'good' container ({self.args.passing_container}, {check_pass.result})",
+                            expected_outcome=ClassifiedTestOutcome.PASS,
+                            actual_outcome=check_pass_outcome,
+                        ) from e
+
+        assert result is not None
+        assert last_known_good is not None
+        assert first_known_bad is not None
         create_output_symlinks(
             self.args.output_prefix, last_known_good, first_known_bad
         )
