@@ -74,6 +74,12 @@ navigation:
     contents:
       - page: GPU Kernels
         path: gpu-kernels.md
+      - section: Agent Skills
+        contents:
+          - page: Overview
+            path: agent-skills/README.md
+          - page: jax-cudnn-frontend
+            path: agent-skills/jax-cudnn-frontend/README.md
 
   # ==================== Reference ====================
   - section: Reference
