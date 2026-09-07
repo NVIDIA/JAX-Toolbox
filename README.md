@@ -28,16 +28,21 @@ JAX Toolbox
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
 ## Latest news
-- **NGC 26.07** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-maxtext-py3) images released
+- **[NGC 26.08](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-08.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.08-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.08-maxtext-py3) images released
+  - [`CUDA 13.4.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-08.html), JAX [`v0.11.0`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.0)
+  - MoE: Improves training speed and GPU utilization through communication/GEMM overlap, fused feed-forward operations, faster expert routing, and new NCCL-based expert parallelism. It also fixes DeepSeek-V3 routing and adds activation configurability.
+  - Attention: Reduces memory use for long-context training with packed all-gather and adds cuDNN-backed flexible attention.
+  - Compiler/runtime: Upgrades JAX to v0.11.0 with CUDA 13.4, improves GPU collectives and TopK operations, updates Triton, and fixes an autotuning deadlock.
+  - **[NGC 26.07](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-07.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-maxtext-py3) images released
   - [`CUDA 13.3.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-07.html), JAX [`v0.10.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
   - Improved NCCL plugin expereince on GCP; cuDNN-backed flex attention re-enabled; support for CuDNN AoT compilation in XLA; LLM training speedup
-- **NGC 26.06** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.06-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.06-maxtext-py3) images released
+- **[NGC 26.06](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-06.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.06-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.06-maxtext-py3) images released
   - [`CUDA 13.3.0`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-06.html), JAX [`v0.10.1`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
   - Improved GPU dot fusion cost model and introduced tileable GemmFusion.
-- **NGC 26.05** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.05-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.05-maxtext-py3) images released
+- **[NGC 26.05](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-05.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.05-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.05-maxtext-py3) images released
   - [`CUDA 13.2.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-05.html), JAX [`v0.10.0`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
   - performant `jax.ragged_dot`; XLA’s `nvfp4` kernel codegen improvements; multi-stream collective support in XLA; PDL (programmatic dependent launch) enablement in XLA and improved D2H & H2D copy overlap with compute
-- **NGC 26.04** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.04-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.04-maxtext-py3) images released
+- **[NGC 26.04](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-04.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.04-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.04-maxtext-py3) images released
   - [`CUDA 13.2.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-05.html), JAX [`v0.9.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.9.2)
   - Thor support in JAX/XLA with full Triton; FP8 reduction support in XLA; and improved collective cost model of GB200/GB300
 
