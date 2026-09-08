@@ -58,8 +58,8 @@ navigation:
   # ==================== Tech Blogs ====================
   - section: Tech Blogs
     contents:
-      - page: Optimizing Tensor Parallelism in JAX and XLA
-        path: blog/tensor-parallelism-optimization.md
+      - page: Collective GEMMs in Tensor Sequence Parallelism
+        path: blog/collective-gemms.md
 
   # ==================== Resiliency ====================
   - section: Resiliency
