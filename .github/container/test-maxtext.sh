@@ -8,6 +8,7 @@ print_var() {
 }
 
 usage() {
+    set +x
     echo "Test MaxText throughput on sythetic data."
     echo ""
     echo "Usage: $0 [OPTIONS]"
