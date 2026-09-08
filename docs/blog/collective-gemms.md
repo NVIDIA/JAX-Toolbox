@@ -1,5 +1,7 @@
 # Collective GEMMs in Tensor Sequence Parallelism
 
+*By Seonghee Lee, Deep Patel, Tejash Shah, Phuong Nguyen, and Abhinav Goel*
+
 > **Draft** — acknowledgements and the benchmark measurement setup are still pending.
 
 ## Introduction
