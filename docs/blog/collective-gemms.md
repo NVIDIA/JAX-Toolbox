@@ -70,6 +70,8 @@ CGEMM requires splitting the work into chunks — slices of the tensor. More chu
 
 ## MaxText + TransformerEngine: collective GEMM integration
 
+[MaxText](https://github.com/AI-Hypercomputer/maxtext) is an open-source LLM framework written entirely in Python and JAX, designed for training, fine-tuning, and scaling large models on both GPUs and TPUs.
+
 MaxText integrates collective GEMMs through its TransformerEngine quantization path. Rather than scheduling the all-gather and GEMM as sequential operations, the collective GEMM implementation tiles both the collective and the matrix multiply along the same dimension, allowing each tile's communication and compute to overlap. This is implemented inside MaxText's quantization layer and is exposed to users through a single configuration flag.
 
 ### Enabling collective GEMMs in MaxText
@@ -143,7 +145,7 @@ return transformer_engine.jax.dense.dense(
 )
 ```
 
-The full TransformerEngine JAX examples, including multi-process launch scripts and tests across BF16, FP8, and MXFP8, are available at `examples/jax/collective_gemm/`.
+The full TransformerEngine JAX examples, including multi-process launch scripts and tests across BF16, FP8, and MXFP8, are available at [`examples/jax/collective_gemm/`](https://github.com/NVIDIA/TransformerEngine/tree/main/examples/jax/collective_gemm).
 
 ## Results
 
@@ -172,4 +174,8 @@ We would like to thank the TransformerEngine and MaxText teams at NVIDIA and Goo
 
 ## Links
 
-To learn more about collective operations, check out the NVIDIA documentation on [collective operations](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/collectives.html).
+- [TransformerEngine JAX collective GEMM examples](https://github.com/NVIDIA/TransformerEngine/tree/main/examples/jax/collective_gemm) — runnable examples with multi-process launch scripts and tests across BF16, FP8, and MXFP8.
+- [NVIDIA TransformerEngine](https://github.com/NVIDIA/TransformerEngine) — the library that provides the fused collective GEMM used here.
+- [MaxText](https://github.com/AI-Hypercomputer/maxtext) — the open-source JAX LLM framework this integration targets.
+- [JAX Toolbox containers](https://github.com/NVIDIA/JAX-Toolbox/pkgs/container/jax) — prebuilt JAX and MaxText images to reproduce these runs.
+- [NCCL collective operations](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/collectives.html) — background on all-gather and reduce-scatter.
