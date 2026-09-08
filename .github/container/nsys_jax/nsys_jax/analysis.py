@@ -28,9 +28,9 @@ def align_profiler_data_timestamps(
     # Error if the communication frame doesn't exist at all, but not if it is empty.
     # Calling this on a profile that does not contain any communication should
     # gracefully yield empty results.
-    assert frames.communication is not None, (
-        "align_profiler_data_timestamps requires a communication frame"
-    )
+    assert (
+        frames.communication is not None
+    ), "align_profiler_data_timestamps requires a communication frame"
     if not len(frames.communication):
         # Nothing to be done, return an empty result
         return frames, {}
@@ -43,9 +43,9 @@ def align_profiler_data_timestamps(
             f"WARNING: cannot align {num_profiled_devices} devices because max collective size is 1"
         )
         return frames, {}
-    assert num_profiled_devices == max_collective_size, (
-        f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
-    )
+    assert (
+        num_profiled_devices == max_collective_size
+    ), f"Aligning {num_profiled_devices} using collectives of size {max_collective_size} is not implemented"
     # Find the collectives that will be used
     align_df = comm_df[comm_df["CollectiveSize"] == max_collective_size]
     # Calculate the collectives' end times
@@ -189,18 +189,22 @@ def _get_message_size(
 ) -> tuple[int, str, int, float, float]:
     _, inst = module_proto.find_instruction(instruction)
     comm_inst = inst.communication_proto()
-    assert comm_inst.opcode in {
-        "all-gather-start",
-        "all-reduce-start",
-        "all-to-all",
-        "collective-broadcast",
-        "collective-permute-start",
-        "dynamic-slice",
-        "dynamic-update-slice",
-        "reduce-scatter",
-    }, (
-        f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
-    )
+    assert (
+        comm_inst.opcode
+        in {
+            "all-gather",
+            "all-gather-start",
+            "all-reduce",
+            "all-reduce-start",
+            "all-to-all",
+            "collective-broadcast",
+            "collective-permute",
+            "collective-permute-start",
+            "dynamic-slice",
+            "dynamic-update-slice",
+            "reduce-scatter",
+        }
+    ), f"{instruction}: message size calculation for {comm_inst.opcode} has not yet been validated"
 
     def _byte_size(inst) -> int:
         size_bits = math.prod(
@@ -211,7 +215,7 @@ def _get_message_size(
         assert rem == 0
         return size_bytes
 
-    if comm_inst.opcode == "collective-permute-start":
+    if comm_inst.opcode in {"collective-permute-start", "collective-permute"}:
         # See https://openxla.org/xla/operation_semantics#collectivepermute, which
         # generates pair-wise send+recv between devices
         collective_size = 2
@@ -250,33 +254,38 @@ def _get_message_size(
             replica_groups = comm_inst.replica_groups
         if len(replica_groups) == 0:
             # perhaps we have the newer format
+            collective_size = 0
             try:
                 collective_size = comm_inst.collective_device_list.iota_replica_group_list.num_devices_per_group
             except AttributeError:
-                # Or the even-newer format
-                collective_size = (
-                    comm_inst.iota_collective_device_list.num_devices_per_group
-                )
-            if len(replica_groups) == 0:
+                pass
+            if collective_size == 0:
+                try:
+                    collective_size = (
+                        comm_inst.iota_collective_device_list.num_devices_per_group
+                    )
+                except AttributeError:
+                    pass
+            if collective_size == 0:
                 # Or the EVEN-newer format. It seems that process_allgather emits this. The default print(axes) is unhelpful, beware.
                 mesh = comm_inst.mesh_axes_replica_group_list.mesh
                 axes = comm_inst.mesh_axes_replica_group_list.axes
                 assert len(axes), axes
-                assert not any(ax.HasField("sub_axis_info") for ax in axes), (
-                    f"sub_axis_info not supported: {axes}"
-                )
+                assert not any(
+                    ax.HasField("sub_axis_info") for ax in axes
+                ), f"sub_axis_info not supported: {axes}"
                 collective_size = np.prod(
                     [mesh.axes[ax.mesh_axis_index].size for ax in axes]
                 )
         else:
             collective_sizes = set(len(group.replica_ids) for group in replica_groups)
-            assert len(collective_sizes) == 1, (
-                f"Heterogeneous collective {comm_inst} could not be interpreted"
-            )
+            assert (
+                len(collective_sizes) == 1
+            ), f"Heterogeneous collective {comm_inst} could not be interpreted"
             collective_size = next(iter(collective_sizes))
-        assert collective_size > 0, (
-            f"Could not extract collective size from: {comm_inst}"
-        )
+        assert (
+            collective_size > 0
+        ), f"Could not extract collective size from: {comm_inst}"
     total_msg_size = 0
     for operand_id in comm_inst.operand_ids:
         _, operand = module_proto.find_instruction_by_id(operand_id)
@@ -396,24 +405,35 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
         # Loop over the main-thread ranges that launched parallel work
         for launcher_row in profile_df.loc[launcher_ids, :].itertuples():
             assert launcher_row.TID == main_thread
-            # Find all child ranges; some may still be in the main thread. Assume for now
-            # that the sequence will just be something like:
+            # Find all child ranges; some may still be in the main thread. Historically
+            # the sequence was something like:
             #   M(A) M(A) M(A) .. W1(B) W2(B) W3(B) W1(B) .. M(C) M(C)
             # i.e. the main thread M does some task (A), then workers W{1,2,3} do some task
-            # (B) in parallel, then the main thread continues with another task (C),
-            # without overlap between A, B and C. For simplicity, we assume that there is
-            # only one parallel region B in a given parent range, but this restriction
-            # could be relaxed if needed.
+            # (B) in parallel, then the main thread continues with another task (C).
+            # Newer XLA may overlap B with main-thread work, which is handled below.
+            # For simplicity, we assume that there is only one parallel region B in a
+            # given parent range, but this restriction could be relaxed if needed.
             child_df = profile_df[make_child_mask(profile_df, launcher_row.Index)]
             is_main = child_df["TID"] == launcher_row.TID
             child_ends = child_df["StartMs"] + child_df["DurMs"]
             # Assuming there's only one parallel region inside `launcher_row`
             parallel_start = child_df.loc[~is_main, "StartMs"].min()
             parallel_end = child_ends[~is_main].max()
-            # Assert that there are no main-thread tasks during this period
-            main_before = is_main & (child_ends < parallel_start)
-            main_after = is_main & (child_df["StartMs"] > parallel_end)
-            assert ((main_before | main_after) == is_main).all()
+            # Worker activity accounts for the parallel region's wall time below.
+            # Remove overlapping main-thread activity from the serial accounting so
+            # that it is not counted for a second time later.
+            main_durations = child_df.loc[is_main, "DurMs"]
+            main_overlap_ms = (
+                np.minimum(child_ends[is_main], parallel_end)
+                - np.maximum(child_df.loc[is_main, "StartMs"], parallel_start)
+            ).clip(lower=0.0)
+            main_outside_fraction = 1.0 - (main_overlap_ms / main_durations).where(
+                main_durations > 0.0, 0.0
+            ).clip(lower=0.0, upper=1.0)
+            columns = ["DurChildMs", "DurNonChildMs"]
+            compile_df.loc[main_durations.index, columns] = compile_df.loc[
+                main_durations.index, columns
+            ].mul(main_outside_fraction, axis="index")
             # Aggregate statistics for how the worker threads spend their time and use that
             # distribution to divide up the [parallel_start, parallel_end] range of the overall
             # compilation time.
@@ -428,10 +448,11 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
 
             child_df[~is_main].apply(attribute_parallel_time, axis="columns")
             # Easy to update these given the simplifying assumptions above; they are set to
-            # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`
+            # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`.
+            # Main-thread child time inside parallel_dur has already been accounted for.
             compile_df.loc[launcher_row.Index, "DurChildMs"] = (
-                child_df.loc[is_main, "DurMs"].sum() + parallel_dur
-            )
+                main_durations - main_overlap_ms
+            ).sum() + parallel_dur
             compile_df.loc[launcher_row.Index, "DurNonChildMs"] = (
                 launcher_row.DurMs - compile_df.loc[launcher_row.Index, "DurChildMs"]
             )

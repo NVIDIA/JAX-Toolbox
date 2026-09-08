@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import typing
 import zipfile
 
@@ -35,11 +36,16 @@ def nsys_jax_with_result(command, *, out_dir):
 
         def _not_dead(child: psutil.Process) -> bool:
             try:
-                return child.status() != "dead"
+                return child.status() not in {
+                    psutil.STATUS_DEAD,
+                    psutil.STATUS_ZOMBIE,
+                }
             except psutil.NoSuchProcess:
                 return False
 
         descendants = list(filter(_not_dead, descendants))
+        if descendants:
+            time.sleep(0.1)
     return output, subprocess.CompletedProcess(
         args=proc.args, returncode=proc.returncode
     )
