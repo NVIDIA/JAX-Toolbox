@@ -436,9 +436,9 @@ def create_commits(num_commits, num_projects):
     """
     Generate commits for test_commit_search_exhaustive.
     """
-    assert (
-        num_commits > num_projects
-    ), "Need at least a good commit for each project plus one bad commit for a culprit project"
+    assert num_commits > num_projects, (
+        "Need at least a good commit for each project plus one bad commit for a culprit project"
+    )
 
     def fake_hash():
         fake_hash.n += 1

@@ -194,7 +194,9 @@ class TriageTool:
             while out_dir.exists():
                 out_dir = base_out_dir.with_name(f"{base_out_dir.name}-restart-{n}")
                 n += 1
-        assert not out_dir.exists(), f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
+        assert not out_dir.exists(), (
+            f"{out_dir} should not already exist, maybe you are re-using {self.args.output_prefix}?"
+        )
         out_dir.mkdir(mode=0o755)
         return out_dir.resolve()
 
@@ -240,9 +242,9 @@ class TriageTool:
         """
         if explicit_versions is not None and container_url is None:
             return explicit_versions, None, None, None
-        assert (
-            container_url is not None
-        ), "Container URL must be provided if explicit versions are not set."
+        assert container_url is not None, (
+            "Container URL must be provided if explicit versions are not set."
+        )
 
         with self._make_container(container_url) as worker:
             url_versions, dirs, env = get_versions_dirs_env(
@@ -481,8 +483,10 @@ class TriageTool:
         known_scripts_result = worker.exec(
             [
                 "sh",
+                "-o",
+                "pipefail",
                 "-c",
-                f'find ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path} -maxdepth 1 -type f -and -executable -print0 | sed -e "s|^${{JAX_TOOLBOX_TRIAGE_PREFIX}}||"',
+                f'find ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.args.build_scripts_path} -maxdepth 1 -type f -print0 | sed -e "s|^${{JAX_TOOLBOX_TRIAGE_PREFIX}}||"',
             ],
             policy="once",
             stderr="separate",
@@ -1452,9 +1456,9 @@ class TriageTool:
                             f"Reproduced failure in {self.args.failing_container} but not {self.bisection_url}"
                         ) from e
                     else:
-                        assert (
-                            check_fail_outcome == ClassifiedTestOutcome.PASS
-                        ), check_fail_outcome
+                        assert check_fail_outcome == ClassifiedTestOutcome.PASS, (
+                            check_fail_outcome
+                        )
                         raise CouldNotReproduceDesiredOutcome(
                             f"Could not reproduce failure with 'bad' container ({self.args.failing_container}, {check_fail.result})",
                             expected_outcome=ClassifiedTestOutcome.FAIL,
@@ -1488,9 +1492,9 @@ class TriageTool:
                             f"Reproduced success in {self.args.passing_container} but not {self.bisection_url}"
                         ) from e
                     else:
-                        assert (
-                            check_pass_outcome == ClassifiedTestOutcome.FAIL
-                        ), check_pass_outcome
+                        assert check_pass_outcome == ClassifiedTestOutcome.FAIL, (
+                            check_pass_outcome
+                        )
                         raise CouldNotReproduceDesiredOutcome(
                             f"Could not reproduce success with 'good' container ({self.args.passing_container}, {check_pass.result})",
                             expected_outcome=ClassifiedTestOutcome.PASS,

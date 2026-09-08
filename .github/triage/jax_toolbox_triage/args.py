@@ -36,22 +36,6 @@ def parse_version_argument(s: str) -> dict[str, str]:
     return ret
 
 
-def parse_commit_argument(s: str) -> dict[str, str]:
-    try:
-        versions = parse_version_argument(s)
-    except (AssertionError, ValueError) as error:
-        raise argparse.ArgumentTypeError("invalid --commit value") from error
-    if any(character.isspace() for character in s) or any(
-        not package
-        or package.startswith("-")
-        or not revision
-        or revision.startswith("-")
-        for package, revision in versions.items()
-    ):
-        raise argparse.ArgumentTypeError("invalid --commit value")
-    return versions
-
-
 def parse_override_remotes(s: str) -> dict[str, str]:
     """Function to parse the override remote
 
@@ -259,7 +243,7 @@ def parse_args(args=None) -> argparse.Namespace:
         "--commit",
         metavar="PACKAGE:REVISION[,PACKAGE:REFERENCE...]",
         action="append",
-        type=parse_commit_argument,
+        type=parse_version_argument,
         help="""
             Version vector suspected of introducing the regression. The first package
             is the suspected culprit and any remaining packages are reference versions;
@@ -467,7 +451,9 @@ def parse_args(args=None) -> argparse.Namespace:
     if args.container_runtime == "local":
         assert (
             args.passing_versions is not None and args.failing_versions is not None
-        ), "For local runtime, --passing-versions and --failing-versions must be provided."
+        ), (
+            "For local runtime, --passing-versions and --failing-versions must be provided."
+        )
         assert (
             args.container is None
             and args.start_date is None
@@ -510,7 +496,7 @@ def parse_args(args=None) -> argparse.Namespace:
     else:
         # None of --{passing,failing}-{versions,container} were passed, make sure the
         # compulsory arguments for the container-level search were passed
-        assert (
-            args.container is not None
-        ), "--container must be passed for the container-level search"
+        assert args.container is not None, (
+            "--container must be passed for the container-level search"
+        )
     return args

@@ -169,11 +169,10 @@ To use the tool, there are two compulsory inputs:
       * **Version Search between Containers**: `--passing-container` and `--failing-container`: a pair of URLs to containers to use in the version-level search; if these are passed then no container-level search is performed.
       * **Local Commit Search**: Use `--container-runtime=local` when you are already inside a JAX container. This mode skips all container orchestration and performs a version-level search directly in the local container. It requires you to specify the version range with `--passing-versions` and `--failing-versions`.
 
-Any of these scopes can be combined with `--commit REVISION` to check a suspected
-culprit first. A bare revision refers to JAX. For another source repository, use
-`--commit PACKAGE:REVISION` (for example, `--commit xla:abc123`). The ordinary scope
-arguments are still required because they provide the build environment and the
-fallback search range.
+Version-level search can be combined with `--commit PACKAGE:REVISION` to hint a probable culprit commit.
+`--commit` may be passed multiple times to pass multiple hints.
+If multiple packages are listed in the same instance (`--commit P1:R1,P2:R2`) then the 2nd and subsequent packages and revisions are interpreted as reference values; i.e. the hint is that `(R1, R2)` fails and `(parent of R1, R2)` passes.
+The ordinary scope arguments are still required because they provide the build environment and the fallback search range.
 
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run
