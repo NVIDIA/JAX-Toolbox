@@ -482,7 +482,7 @@ class TriageTool:
 
         known_scripts_result = worker.exec(
             [
-                "sh",
+                "bash",
                 "-o",
                 "pipefail",
                 "-c",
