@@ -172,8 +172,6 @@ We would like to thank the TransformerEngine and MaxText teams at NVIDIA and Goo
 
 [1] V. Korthikanti et al., "Reducing Activation Recomputation in Large Transformer Models," [arXiv:2205.05198](https://arxiv.org/abs/2205.05198).
 
-## Links
-
 - [TransformerEngine JAX collective GEMM examples](https://github.com/NVIDIA/TransformerEngine/tree/main/examples/jax/collective_gemm) — runnable examples with multi-process launch scripts and tests across BF16, FP8, and MXFP8.
 - [NVIDIA TransformerEngine](https://github.com/NVIDIA/TransformerEngine) — the library that provides the fused collective GEMM used here.
 - [MaxText](https://github.com/AI-Hypercomputer/maxtext) — the open-source JAX LLM framework this integration targets.
