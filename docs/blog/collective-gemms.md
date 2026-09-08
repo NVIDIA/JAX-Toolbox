@@ -1,12 +1,14 @@
 # Collective GEMMs in Tensor Sequence Parallelism
 
-> **Draft** — figures and acknowledgements are still pending.
+> **Draft** — acknowledgements and the benchmark measurement setup are still pending.
 
 ## Introduction
 
 Training large language models at scale requires distributing work across many GPUs. But distribution comes at a cost: GPUs must constantly communicate to stay synchronized, and every moment spent waiting on communication is a moment not spent on compute. Tensor-sequence parallelism is one of the leading strategies for scaling dense models across large GPU clusters, but its reliance on exposed collective operations limits GPU utilization.
 
 Collective GEMMs address this directly by overlapping communication and compute. Collective GEMMs on MaxText deliver 1008 → 1620 TFLOPS on Llama3-70B and 1201 → 1788 TFLOPS on Llama3-405B, a 61% and 49% speedup over baseline, respectively. In this blog, we talk about the technical details of collective GEMM operations in MaxText and how you can easily enable this on your models.
+
+![Bar chart of MaxText training throughput in TFLOPS, baseline versus collective GEMMs. Llama3-70B rises from 1008 to 1620 TFLOPS, a 61% gain. Llama3-405B rises from 1201 to 1788 TFLOPS, a 49% gain.](../img/maxtext-collective-gemm-benchmark.png)
 
 ## What is tensor-sequence parallelism (TPSP)?
 
@@ -22,8 +24,7 @@ Communication is the cost of splitting that work. No single GPU can hold all the
 
 Tensor parallelism splits the weight matrices (`W`) of each linear layer across GPUs. Within a transformer layer, this applies inside the attention block and the MLP block — the dotted green regions in Figure 1. Each region pairs a column-wise split with a row-wise one: `W_qkv` and the MLP up-projection are split along their output dimension (column-wise split), `W_o` and `W_down` along their input dimension (row-wise split). The row-wise split leaves each GPU holding only a partial sum of the output `Y`, so it must be exchanged across the tensor-parallel group before the next GEMM can run. This introduces two communication operations, `f` and `f̄`, at the boundary of every attention and MLP block [1].
 
-{/* TODO: add figure 1 image to docs/img/ and reference it here as
-    ![Tensor parallelism in a transformer layer](./../img/tp-transformer-layer.png) */}
+![Tensor parallelism in a transformer layer, shown left to right. Two dotted green tensor-parallel regions enclose the attention block, holding self attention with a column-wise W_qkv and a row-wise W_o, and the MLP block, holding a column-wise W_up, GeLU, and a row-wise W_down. LayerNorm, dropout, and the residual additions sit outside those regions, and the collectives f and f-bar mark each region boundary.](../img/tensor-parallelism-transformer-layer.png)
 
 *Figure 1. Tensor parallelism in a transformer layer. Regions in the attention block and the MLP block are each sharded across the tensor-parallel group: weights are split across GPUs, and so are the activations produced inside the block. Two collectives connect the regions: `f` is a no-op in the forward pass and an all-reduce in the backward pass, `f̄` the reverse. Diagram adapted from Korthikanti et al. [1].*
 
@@ -35,8 +36,7 @@ Tensor parallelism only covers operations that have a weight matrix to shard. La
 
 Tensor-sequence parallelism is tensor parallelism and sequence parallelism combined on the same group of GPUs. In tensor-sequence parallelism, these two strategies alternate through each transformer layer, connected by reduce-scatter and all-gather collectives that transition activations between the two sharding regimes. The result is that both weight memory and activation memory scale with the number of GPUs, enabling strong-scaling of dense models to large GPU counts without the memory walls that limit data parallelism alone.
 
-{/* TODO: add figure 2 image to docs/img/ and reference it here as
-    ![Tensor-sequence parallelism in a transformer layer](./../img/tpsp-transformer-layer.png) */}
+![Tensor-sequence parallelism in a transformer layer, shown left to right, alternating between sequence-parallel and tensor-parallel regions. LayerNorm, dropout and the residual additions run in sequence-parallel regions where activations are shaped B, S/t, H. The attention and MLP weight matrices run in tensor-parallel regions where activations are shaped B, S, H/t. The collectives g and g-bar convert between the two regimes.](../img/tensor-sequence-parallelism-transformer-layer.svg)
 
 *Figure 2. Tensor-sequence parallelism in the same transformer layer. The regions alternate. Inside the tensor-parallel regions, the weight matrices are split across the group and the activations they produce are split on the hidden dimension. Inside the sequence-parallel regions sit LayerNorm, dropout, and the residual additions, which have no weight matrix to shard; because each operates on one token at a time, the activations are split along the sequence dimension instead. The same GPUs serve both regimes, and `g` and `ḡ` convert between them: `g` is an all-gather in the forward pass and a reduce-scatter in the backward, `ḡ` the reverse. Diagram adapted from Korthikanti et al. [1].*
 
@@ -48,10 +48,9 @@ The result is that GPUs sit idle during communication, directly reducing utiliza
 
 ## Collective GEMMs (CGEMM)
 
-{/* TODO: add figure 3 image to docs/img/ and reference it here as
-    ![All-gather + GEMM and GEMM + reduce-scatter](./../img/collective-gemm.png) */}
+![Two panels, each comparing a serial timeline against an overlapped one. On the left, the all-gather end: the GEMM starts immediately on the token range the GPU already holds, so all three incoming transfers hide behind compute and the boundary falls from eight units to four. On the right, the reduce-scatter end: nothing can be sent until the first range has been computed, and the final range's reduction has no compute left beside it, so the boundary falls only from eight units to five.](../img/collective-gemm-overlap.svg)
 
-*Figure 3. Collective GEMM operations: all-gather `g` + GEMM, and GEMM + reduce-scatter `ḡ`.*
+*Figure 3. Collective GEMM operations: all-gather `g` + GEMM, and GEMM + reduce-scatter `ḡ`. Chunking gives the all-gather end a head start with no tail, so it hides fully; the reduce-scatter end has neither, so a head and a tail remain exposed.*
 
 Ordinarily, the collective and the GEMM are separate operations that run one after the other: the all-gather `g` finishes moving the whole tensor, then the GEMM starts multiplying. A collective GEMM fuses them into one operation and cuts both into chunks — slices of the tensor along the sequence dimension, a subset of the tokens each — so the multiply can work on the chunks that have already arrived while the rest are still in flight.
 
