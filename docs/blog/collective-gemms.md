@@ -14,7 +14,7 @@ Training large language models at scale requires distributing work across many G
 
 Collective GEMMs address this directly by overlapping communication and compute. **Collective GEMMs on MaxText deliver 1008 → 1620 TFLOPS on Llama3-70B and 1201 → 1788 TFLOPS on Llama3-405B, a 61% and 49% speedup over an FSDP + TP baseline, respectively.** In this blog, we talk about the technical details of collective GEMM operations in MaxText and how you can easily enable this on your models.
 
-![Bar chart of MaxText training throughput in TFLOPS, baseline versus collective GEMMs. Llama3-70B rises from 1008 to 1620 TFLOPS, a 61% gain. Llama3-405B rises from 1201 to 1788 TFLOPS, a 49% gain.](../img/maxtext-collective-gemm-benchmark.png)
+![Bar chart of MaxText training throughput in TFLOPS comparing collective GEMMs against a baseline of FSDP plus tensor parallelism without collective GEMMs, both under FP8 training. Llama3-70B rises from 1008 to 1620 TFLOPS, a 61% gain. Llama3-405B rises from 1201 to 1788 TFLOPS, a 49% gain.](../img/maxtext-collective-gemm-benchmark.png)
 
 ## What is tensor-sequence parallelism (TPSP)?
 
