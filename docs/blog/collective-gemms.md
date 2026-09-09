@@ -6,13 +6,13 @@ layout: overview
 
 <small style={{ opacity: 0.7 }}>By Seonghee Lee, Deep Patel, Tejash Shah, Phuong Nguyen, and Abhinav Goel</small>
 
-> **TL;DR** — Tensor-sequence parallelism leaves an all-gather and a reduce-scatter exposed at every layer boundary, so GPUs idle while they wait on communication. Collective GEMMs fuse each collective with the GEMM next to it and chunk both along the sequence dimension, letting the multiply work on the tokens that have already arrived. In MaxText this is two configuration flags, and it raises training throughput by 61% on Llama3-70B and 49% on Llama3-405B.
+> **TL;DR** — Tensor-sequence parallelism leaves an all-gather and a reduce-scatter exposed at every layer boundary, so GPUs idle while they wait on communication. Collective GEMMs fuse each collective with the GEMM next to it and chunk both along the sequence dimension, letting the multiply work on the tokens that have already arrived. In MaxText this is two configuration flags, and it raises training throughput by 61% on Llama3-70B and 49% on Llama3-405B over an FSDP + TP baseline.
 
 ## Introduction
 
 Training large language models at scale requires distributing work across many GPUs. But distribution comes at a cost: GPUs must constantly communicate to stay synchronized, and every moment spent waiting on communication is a moment not spent on compute. Tensor-sequence parallelism is one of the leading strategies for scaling dense models across large GPU clusters, but its reliance on exposed collective operations limits GPU utilization.
 
-Collective GEMMs address this directly by overlapping communication and compute. **Collective GEMMs on MaxText deliver 1008 → 1620 TFLOPS on Llama3-70B and 1201 → 1788 TFLOPS on Llama3-405B, a 61% and 49% speedup over baseline, respectively.** In this blog, we talk about the technical details of collective GEMM operations in MaxText and how you can easily enable this on your models.
+Collective GEMMs address this directly by overlapping communication and compute. **Collective GEMMs on MaxText deliver 1008 → 1620 TFLOPS on Llama3-70B and 1201 → 1788 TFLOPS on Llama3-405B, a 61% and 49% speedup over an FSDP + TP baseline, respectively.** In this blog, we talk about the technical details of collective GEMM operations in MaxText and how you can easily enable this on your models.
 
 ![Bar chart of MaxText training throughput in TFLOPS, baseline versus collective GEMMs. Llama3-70B rises from 1008 to 1620 TFLOPS, a 61% gain. Llama3-405B rises from 1201 to 1788 TFLOPS, a 49% gain.](../img/maxtext-collective-gemm-benchmark.png)
 
@@ -153,14 +153,16 @@ The full TransformerEngine JAX examples, including multi-process launch scripts 
     TP/SP degree, sequence length, per-device batch size, container tag, and
     which overlap policy (MLP_ONLY or FULL) produced them. */}
 
-| Model | Baseline | Collective GEMMs | Speedup |
-|-------|----------|------------------|---------|
+| Model | Baseline: FSDP + TP | With collective GEMMs | Speedup |
+|-------|---------------------|-----------------------|---------|
 | Llama3-70B | 1008 TFLOPS | 1620 TFLOPS | 61% |
 | Llama3-405B | 1201 TFLOPS | 1788 TFLOPS | 49% |
 
+The baseline here is FSDP combined with tensor parallelism, with collective GEMM overlap disabled — not an FSDP-only configuration. This distinction matters when comparing against previously published numbers: adding tensor parallelism is precisely what introduces the exposed collectives described above, so it costs throughput before any of it is recovered by overlap. Figures measured on FSDP-only configurations are therefore not directly comparable to either column.
+
 ## Conclusion
 
-Collective GEMMs in MaxText, powered by TransformerEngine, make communication-compute overlap accessible via two configuration flags. This eliminates the exposed collectives that limit GPU utilization in tensor-sequence parallel training. Collective GEMMs on MaxText deliver 1008 → 1620 TFLOPS on Llama3-70B and 1201 → 1788 TFLOPS on Llama3-405B, a 61% and 49% speedup over baseline, respectively. As models and clusters continue to scale, hiding collective latency behind useful compute becomes essential, and this integration makes that straightforward to enable.
+Collective GEMMs in MaxText, powered by TransformerEngine, make communication-compute overlap accessible via two configuration flags. This eliminates the exposed collectives that limit GPU utilization in tensor-sequence parallel training. Collective GEMMs on MaxText deliver 1008 → 1620 TFLOPS on Llama3-70B and 1201 → 1788 TFLOPS on Llama3-405B, a 61% and 49% speedup over an FSDP + TP baseline, respectively. As models and clusters continue to scale, hiding collective latency behind useful compute becomes essential, and this integration makes that straightforward to enable.
 
 ## Acknowledgements
 
