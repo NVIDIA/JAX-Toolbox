@@ -166,9 +166,7 @@ Collective GEMMs in MaxText, powered by TransformerEngine, make communication-co
 
 ## Acknowledgements
 
-{/* TODO: replace with the actual names and teams before publishing. */}
-
-We would like to thank the TransformerEngine and MaxText teams at NVIDIA and Google, whose efforts made this integration possible.
+We would like to thank the TransformerEngine and XLA teams at NVIDIA and the MaxText team at Google, whose efforts made this integration possible.
 
 ## References
 
