@@ -8,7 +8,7 @@ on:
       timezone: "Europe/London"
   push:
     branches:
-      - 'pull-request/[0-9]+'
+      - 'pull-request/[0-9]+' # created by copy-pr-bot
     paths-ignore:
       - '**.md'
       - '.github/triage/**'
