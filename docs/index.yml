@@ -38,6 +38,10 @@ navigation:
             path: frameworks/maxtext/README.md
           - page: NVFP4 Training Example
             path: frameworks/maxtext/nvfp4/README.md
+          - page: DeepSeek-v3 MoE Configuration
+            path: frameworks/maxtext/deepseek-v3-moe/README.md
+            # Explicit slug: Fern otherwise renders this as "deep-seek-v-3-mo-e"
+            slug: deepseek-v3-moe
       - page: AXLearn
         path: frameworks/axlearn/README.md
 
