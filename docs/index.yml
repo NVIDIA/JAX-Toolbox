@@ -38,8 +38,6 @@ navigation:
             path: frameworks/maxtext/README.md
           - page: NVFP4 Training Example
             path: frameworks/maxtext/nvfp4/README.md
-          - page: DeepSeek-v3 MoE Configuration
-            path: frameworks/maxtext/deepseek-v3-moe/README.md
       - page: AXLearn
         path: frameworks/axlearn/README.md
 
