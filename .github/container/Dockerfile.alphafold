@@ -17,10 +17,12 @@ RUN <<"EOF" bash -ex -o pipefail
 git-clone.sh ${URLREF_ALPHAFOLD} ${SRC_PATH_ALPHAFOLD}
 EOF
 
-
+# Remove JAX version pins; we use HEAD. Remove tokamax pin; the latest tokamax
+# release is more likely to be compatible with the HEAD of JAX.
 RUN <<"EOF" bash -ex -o pipefail
 sed -i '/"jax==.*"/d' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
 sed -i '/"jax\[cuda12\]==.*"/d' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
+sed -i 's/"tokamax==[^"]*"/"tokamax"/' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
 echo "-e file://${SRC_PATH_ALPHAFOLD}" >> /opt/pip-tools.d/requirements-af.in
 EOF
 RUN cat ${SRC_PATH_ALPHAFOLD}/pyproject.toml
