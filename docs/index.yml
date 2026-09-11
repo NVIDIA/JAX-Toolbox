@@ -55,6 +55,14 @@ navigation:
       - page: nsys-jax
         path: nsys-jax.md
 
+  # ==================== Tech Blogs ====================
+  - section: Tech Blogs
+    contents:
+      - page: Collective GEMMs in Tensor Sequence Parallelism
+        path: blog/collective-gemms.md
+        # Explicit slug: Fern otherwise renders "GEMMs" as "gem-ms"
+        slug: collective-gemms
+
   # ==================== Resiliency ====================
   - section: Resiliency
     contents:
