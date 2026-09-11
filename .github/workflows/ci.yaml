@@ -169,7 +169,7 @@ jobs:
         run: |
           if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
             echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
-            echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+            echo "SUFFIX=-staging" >> $GITHUB_OUTPUT
           else
             echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
             echo "SUFFIX=" >> $GITHUB_OUTPUT
