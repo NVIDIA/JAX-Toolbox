@@ -28,4 +28,4 @@ The table below shows the first nightly that shipped with each base container.
 | 2024-07-24 | `nvidia/cuda:12.5.0-devel-ubuntu22.04` |
 
 See also [Staging Containers](./staging-containers.md) for the
-`scale-training` release history.
+`scale-training` / `staging` release history.
