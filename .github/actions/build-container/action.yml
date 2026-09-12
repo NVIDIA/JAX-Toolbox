@@ -66,6 +66,12 @@ inputs:
     description: "Optional named build context to source from a runner registry for the final image handoff"
     required: false
     default: ""
+  mealkit-secret-envs:
+    description: >-
+      Optional newline-delimited BuildKit secret mappings in SECRET_ID=ENV_VAR
+      form. These secrets are exposed only to the mealkit build.
+    required: false
+    default: ""
   require-nsys-jax-version-artifact:
     description: "Whether this container build requires the nsys-jax version.py artifact"
     required: false
@@ -114,8 +120,6 @@ runs:
         keep-state: true
         # TODO: check whether we need the oci.worker specification
 
-
-
     - name: Download nsys-jax version.py
       if: ${{ inputs.require-nsys-jax-version-artifact == 'true' && inputs.CONTAINER_NAME != 'jio' }}
       uses: actions/download-artifact@v8
@@ -160,6 +164,7 @@ runs:
         ssh: default
         secret-files: |
           "SSH_KNOWN_HOSTS=${{ steps.setup-ssh.outputs.known-hosts-file }}"
+        secret-envs: ${{ inputs.mealkit-secret-envs }}
         allow: ${{ inputs.docker-build-allow }}
         network: ${{ inputs.docker-build-network }}
         build-args: |

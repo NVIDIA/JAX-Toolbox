@@ -67,14 +67,16 @@ jobs:
   build-jax:
     needs: build-base
     runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu32m' || 'linux-arm64-cpu32m' }}
+    env:
+      CACHE_AWS_REGION: ${{ vars.AWS_REGION || secrets.AWS_REGION }}
     steps:
         - name: Checkout repository
           uses: actions/checkout@v6
         - name: Configure AWS credentials via OIDC
-          uses: aws-actions/configure-aws-credentials@v4
+          uses: aws-actions/configure-aws-credentials@v6
           with:
             role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
-            aws-region: ${{ secrets.AWS_REGION}}
+            aws-region: ${{ env.CACHE_AWS_REGION }}
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
@@ -84,7 +86,7 @@ jobs:
             BAZEL_REMOTE_DIAGNOSTICS_DIR: /tmp/bazel-remote-diagnostics
             BAZEL_REMOTE_PORT: 9090
             BAZEL_REMOTE_PREFIX: bazel-remote/${{ inputs.ARCHITECTURE }}
-            BAZEL_REMOTE_REGION: ${{ secrets.AWS_REGION }}
+            BAZEL_REMOTE_REGION: ${{ env.CACHE_AWS_REGION }}
           run: |
             set -euxo pipefail
             : "${AWS_ACCESS_KEY_ID:?missing AWS_ACCESS_KEY_ID}"
@@ -153,6 +155,8 @@ jobs:
         - name: Build JAX container
           id: build-jax
           uses: ./.github/actions/build-container
+          env:
+            SCCACHE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
           with:
             ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
             ARTIFACT_NAME: artifact-jax-build
@@ -169,11 +173,20 @@ jobs:
             docker-build-allow: network.host
             docker-build-network: host
             registry-build-context-name: mealkit
+            mealkit-secret-envs: |
+              AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID
+              AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY
+              AWS_SESSION_TOKEN=AWS_SESSION_TOKEN
+              SCCACHE_BUCKET=SCCACHE_BUCKET
             EXTRA_BUILD_ARGS: |
               URLREF_JAX=${{ fromJson(inputs.SOURCE_URLREFS).JAX }}
               URLREF_XLA=${{ fromJson(inputs.SOURCE_URLREFS).XLA }}
               URLREF_FLAX=${{ fromJson(inputs.SOURCE_URLREFS).FLAX }}
               URLREF_TRANSFORMER_ENGINE=${{ fromJson(inputs.SOURCE_URLREFS).TRANSFORMER_ENGINE }}
+              NVTE_BUILD_MAX_JOBS=4
+              NVTE_BUILD_THREADS_PER_JOB=8
+              ENABLE_NVTE_SCCACHE=1
+              SCCACHE_REGION=${{ env.CACHE_AWS_REGION }}
         - name: Collect bazel-remote diagnostics
           if: always()
           env:
