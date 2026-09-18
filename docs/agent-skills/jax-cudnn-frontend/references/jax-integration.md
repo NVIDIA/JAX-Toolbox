@@ -1,0 +1,173 @@
+# JAX integration
+
+Goal: expose the kernel to JAX as a jittable operation with correct buffer
+semantics — after (never before) the standalone proof in Phase 5.
+
+## Discover the mechanism, don't assume it
+
+The bridge surface changes between versions. First introspect what exists:
+
+```python
+import cutlass.jax as cjax
+print([a for a in dir(cjax) if not a.startswith('_')])
+import inspect
+print(inspect.signature(cjax.cutlass_call))      # or whatever exists
+```
+
+Then **read the installed bridge source** (it's Python, it's short, and it is
+the only authoritative statement of the conventions below):
+
+```bash
+python -c "import cutlass.jax.primitive as p; print(p.__file__)"
+# read: the call-builder (primitive.py-like) and the compile/launch wrapper
+# (compile.py-like). Both file names are version-specific.
+```
+
+Verify each of the following against that source for *your* version. All are
+known to exist in some version, and several changed or were buggy in specific
+versions:
+
+## Conventions to verify (each burned us once)
+
+**Launcher convention.** The bridge traces a `@cute.jit` function you supply.
+Typical contract: `launcher(stream, *inputs, *outputs, **constexpr_kwargs)`
+with outputs allocated by XLA from your `output_shape_dtype` declaration.
+Your launcher's job is purely argument reordering into the kernel's
+`__call__` order.
+
+**Outputs are uninitialized.** XLA hands the launcher raw buffers. Any buffer
+the kernel *accumulates into or increments* (counters, workspaces) must be
+zeroed. Two patterns:
+- *Zero-prologue kernel* (robust across versions): a tiny `@cute.kernel`
+  that flattens the tensor and writes zeros, launched inside your launcher
+  before the main kernel, on the same stream. Prefer this.
+- *Aliased zeroed input*: pass `jnp.zeros(...)` as an input and declare
+  `input_output_aliases`. **Version-sensitive**: the aliasing machinery was
+  silently broken in one bridge release (empty outputs, no error) and its
+  argument-list behavior is subtle — verify in the installed source whether
+  aliased outputs are *removed from the launcher's output arguments* (in the
+  studied version they were: you write through the input arg, and the
+  Python-level return still contains all declared outputs).
+
+**Per-tensor specs.** If the bridge has a spec type (layout/mode/alignment/
+static-ness per tensor), note: (a) it usually requires exactly one spec per
+tensor — no broadcasting a single spec; (b) *mode*-style logical permutations
+are zero-copy views — if the kernel demands "dim X contiguous at position k"
+and dim X is already contiguous in your row-major array, a mode permutation
+alone satisfies it with no physical relayout; (c) *layout*-style fields ask
+XLA to materialize a different physical order — only needed when no
+permutation of the existing layout satisfies the stride assertions.
+
+**Scalars/config.** Constexpr kwargs specialize the compiled kernel. Tuples
+(e.g. problem shapes) must be hashable. Prefer passing plain Python numbers
+and letting the DSL coerce, over constructing DSL scalar types inside the
+traced launcher, unless the installed version's own examples do otherwise.
+
+**Streams.** The bridge injects XLA's stream into the launcher; pass it
+through to the kernel. Never fabricate stream handles inside launcher code.
+
+**JIT.** Wrap the calling function in `jax.jit` (config choices that alter
+shapes go in `static_argnums`). Confirm integration by checking
+`jax.make_jaxpr(...)` shows the op, and — more importantly — by bit-comparing
+the jitted path's output against the direct path (below).
+
+## Keep the direct path alive
+
+Alongside the JAX-native wrapper, maintain a `cute.compile`-style direct
+invocation of the same kernel instance (concrete arrays via the DSL's
+`from_dlpack`; check whether a TVM-FFI enable flag is required by the
+installed version — a missing flag produces an explicit "not a TVM-FFI
+tensor" error). This path:
+
+- uses the same invocation *machinery* as the vendor's own wrappers
+  (`from_dlpack` → compile → launch) — the best-tested route to the kernel;
+- runs eagerly on concrete arrays (cannot live under `jax.jit`);
+- is your A/B oracle: same kernel + same tensors through both paths must be
+  bit-identical. Direct-correct + bridge-wrong = bridge bug (report it);
+  both-wrong = kernel or contract problem; both-correct = your remaining
+  bugs are above this layer.
+
+**Memory ownership on this path.** The kernel must write into the output
+and workspace buffers, and whether that is legal depends on *who owns the
+memory* — not on the machinery or on DLPack. The vendor runs this machinery
+over PyTorch tensors, which are mutable by contract, so its writes are
+legitimate. Reading JAX arrays through DLPack views is likewise fine — only
+mutation is at issue. For the kernel-writable buffers, in order of
+preference:
+
+1. **Own them outside JAX (recommended when an external GPU allocator is
+   available).** Allocate outputs/workspace with e.g. CuPy
+   (`cupy.full(shape, nan, dtype)`) or raw `cuda-python` allocations —
+   mutable-by-contract memory, so nothing is undefined. JAX arrays appear
+   only as read-only inputs; results are compared via `cupy.asnumpy`, or
+   imported into JAX with an immediate copy (`jnp.copy` / `device_put`)
+   *after* all writes complete. Fully contract-clean at the cost of one
+   debug-only dependency.
+2. **JAX-owned buffers, with containment (zero extra dependencies).**
+   Prefill fresh `jnp.full` sentinels and let the kernel write into their
+   DLPack views. This is externally-visible mutation of an immutable-by-
+   contract array — undefined behavior per the JAX docs — kept benign by
+   discipline: buffers must be fresh, eagerly created, and single-purpose
+   (never model inputs, never anything produced under `jit`, which XLA may
+   alias or cache); hold Python references until after stream sync; read
+   results with a fresh device read (`np.asarray(jnp.copy(x))` — the
+   caching trap below is a symptom of this same contract); treat mutated
+   arrays as terminal — copy values out, never feed them back into traced
+   computation. Acceptable for a debugging oracle; never for production.
+
+## Pointers and ownership
+
+- JAX↔anything transfers via DLPack are zero-copy views. If a returned array
+  borrows memory owned by another framework/pool, `.copy()` it into
+  JAX-owned memory before the owner can release it — a freed borrowed buffer
+  produces illegal-address crashes at *later, unrelated* operations.
+- `np.asarray(jax_array)` caches: the second call returns the first call's
+  host copy even if device memory changed since. Force a fresh device read
+  with `np.asarray(jnp.copy(x))` when auditing device state.
+
+## Autodiff and batching
+
+- The custom call defines no gradient. Provide `jax.custom_vjp`: forward
+  returns residuals (typically the outputs the backward kernel consumes —
+  their shapes discovered via a full contract pass on the *backward*
+  kernel, which is a separate kernel with its own arch variants, workspace,
+  and metadata pipeline, often including auxiliary kernels such as index
+  inverters).
+- `jax.vmap` does not flow through custom calls; map over batch dimensions
+  the kernel natively supports instead.
+- If any stage must run eagerly (e.g. a sub-kernel broken under the bridge
+  in the installed version), the enclosing training step cannot be jitted —
+  jit the pure-JAX portions separately and document the constraint.
+
+## Example (schematic, version-specific)
+
+**This is a schematic, not runnable code.** It condenses the structure of an
+integration that was validated end-to-end (forward + backward, value-checked
+against independent references on both Hopper and Blackwell) under
+nvidia-cutlass-dsl 4.6.1 + cudnn-frontend 1.27.0. `_kernel`, `_zero_f32`,
+and `aux_shape` are placeholders for the kernel instance, a zero-fill
+prologue `@cute.kernel`, and the auxiliary shape taken from the vendor's own
+allocation. It illustrates the *shape* of a solution, not a timeless API —
+every name and convention below must be re-derived per Phase 4.
+
+```python
+@cute.jit
+def _launcher(stream, x, meta, out, aux, *, scale: float):
+    # launcher convention (verify in installed bridge source):
+    # (stream, *inputs, *outputs, **constexpr_kwargs)
+    _zero_f32(aux).launch(..., stream=stream)  # prologue: aux is accumulated
+                                               # into; bridge outputs are
+                                               # uninitialized — zero them here
+    _kernel(x, out, aux, meta, cutlass.Float32(scale), stream)
+
+@jax.jit
+def op(x, meta):
+    return cjax.cutlass_call(
+        _launcher,
+        output_shape_dtype=[
+            jax.ShapeDtypeStruct(x.shape, x.dtype),          # out
+            jax.ShapeDtypeStruct(aux_shape, jnp.float32),    # aux — shape from
+        ],                                                   # vendor allocation!
+        scale=1.0 / math.sqrt(head_dim),   # constexpr kwarg — name must match
+    )(x, meta)                             # the launcher's keyword parameter
+```
