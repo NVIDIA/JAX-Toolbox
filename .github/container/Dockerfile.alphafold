@@ -21,6 +21,8 @@ EOF
 RUN <<"EOF" bash -ex -o pipefail
 sed -i '/"jax==.*"/d' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
 sed -i '/"jax\[cuda12\]==.*"/d' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
+# 0.0.12 is too old for JAX @ HEAD
+sed -i 's/"tokamax==0.0.12"/"tokamax==0.0.13"/' ${SRC_PATH_ALPHAFOLD}/pyproject.toml
 echo "-e file://${SRC_PATH_ALPHAFOLD}" >> /opt/pip-tools.d/requirements-af.in
 EOF
 RUN cat ${SRC_PATH_ALPHAFOLD}/pyproject.toml
