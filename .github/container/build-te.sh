@@ -127,7 +127,15 @@ NVTE_CUDA_ARCHS="${SM_LIST//,/;}"
 set -x
 export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
 # Parallelism within nvcc invocations.
-export NVTE_BUILD_THREADS_PER_JOB=8
+case "$(uname -m)" in
+    aarch64|arm64)
+        export NVTE_BUILD_MAX_JOBS=4
+        export NVTE_BUILD_THREADS_PER_JOB=2
+        ;;
+    *)
+        export NVTE_BUILD_THREADS_PER_JOB=8
+        ;;
+esac
 export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
 export XLA_HOME=${SRC_PATH_XLA}
