@@ -18,6 +18,8 @@ ARG SRC_PATH_NSYS_JAX=/opt/nsys_jax
 ARG SRC_PATH_TRANSFORMER_ENGINE=/opt/transformer-engine
 ARG GIT_USER_NAME="JAX Toolbox"
 ARG GIT_USER_EMAIL=jax@nvidia.com
+ARG NVTE_BUILD_MAX_JOBS
+ARG NVTE_BUILD_THREADS_PER_JOB=8
 
 ARG BAZEL_CACHE=/tmp
 ARG BUILD_DATE
@@ -70,8 +72,11 @@ RUN mkdir -p /builder/extra-targets/{bin,python} && \
 RUN --mount=type=ssh \
     --mount=type=secret,id=SSH_KNOWN_HOSTS,target=/root/.ssh/known_hosts \
     git-clone.sh ${URLREF_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE}
+
 # Populate ${SRC_PATH_TRANSFORMER_ENGINE}/dist with [a] .whl file(s); --no-install
 # because (a) this is the builder stage, and (b) pip-finalize.sh does the install
+ARG NVTE_BUILD_MAX_JOBS
+ARG NVTE_BUILD_THREADS_PER_JOB
 RUN build-te.sh \
     --clean \
     --no-install \
