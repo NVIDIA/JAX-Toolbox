@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        tool: ["check", "format"]
+        tool: ["check", "format --check"]
       fail-fast: false
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
