@@ -30,17 +30,18 @@ case "${CACHE_BINARY}" in
         rm -rf /var/lib/apt/lists/*
         ;;
     sccache)
-        readonly SCCACHE_SOURCE_URL="https://github.com/mozilla/sccache.git"
-        readonly SCCACHE_SOURCE_COMMIT="e9b15a35f7240a7edd1b9644583edb388c6cb5f9"
-        readonly SCCACHE_RUST_TOOLCHAIN="1.88.0"
-        readonly SCCACHE_RUSTUP_VERSION="1.29.0"
+        # v0.18.0 includes the CUDA 13.3 nvcc dry-run parsing fix from
+        # mozilla/sccache#2722, so an unreleased source commit is no longer needed.
+        readonly SCCACHE_VERSION="v0.18.0"
 
         case "$(dpkg --print-architecture)" in
             amd64)
-                SCCACHE_RUSTUP_HOST="x86_64-unknown-linux-gnu"
+                readonly SCCACHE_HOST_ARCH="x86_64"
+                readonly SCCACHE_ARCHIVE_SHA256="45f1447fbe231e3037bde351ef70677dd212216c8d62ae7ca409fecc4d6acc89"
                 ;;
             arm64)
-                SCCACHE_RUSTUP_HOST="aarch64-unknown-linux-gnu"
+                readonly SCCACHE_HOST_ARCH="aarch64"
+                readonly SCCACHE_ARCHIVE_SHA256="2b3284d5da3b46a47dc4229e75bb7b88ac4aa99c8d754fb7d2f84997e5a4354a"
                 ;;
             *)
                 echo "Unsupported architecture for sccache: $(dpkg --print-architecture)"
@@ -48,45 +49,25 @@ case "${CACHE_BINARY}" in
                 ;;
         esac
 
+        readonly SCCACHE_STEM="sccache-${SCCACHE_VERSION}-${SCCACHE_HOST_ARCH}-unknown-linux-musl"
+        readonly SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_STEM}.tar.gz"
         SCCACHE_TMPDIR="$(mktemp -d)"
+        readonly SCCACHE_ARCHIVE="${SCCACHE_TMPDIR}/${SCCACHE_STEM}.tar.gz"
         cleanup() {
             rm -rf -- "${SCCACHE_TMPDIR}"
         }
         trap cleanup EXIT
 
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y --no-install-recommends libssl-dev pkg-config
-        rm -rf /var/lib/apt/lists/*
-
-        export CARGO_HOME="${SCCACHE_TMPDIR}/cargo"
-        export RUSTUP_HOME="${SCCACHE_TMPDIR}/rustup"
-        SCCACHE_RUSTUP_INIT="${SCCACHE_TMPDIR}/rustup-init"
-        SCCACHE_RUSTUP_URL="https://static.rust-lang.org/rustup/archive/${SCCACHE_RUSTUP_VERSION}/${SCCACHE_RUSTUP_HOST}/rustup-init"
-
         wget -nv --tries=5 --retry-connrefused \
-            -O "${SCCACHE_RUSTUP_INIT}" "${SCCACHE_RUSTUP_URL}"
-        wget -nv --tries=5 --retry-connrefused \
-            -O- "${SCCACHE_RUSTUP_URL}.sha256" \
-            | awk -v binary="${SCCACHE_RUSTUP_INIT}" '{print $1"  "binary}' \
+            --waitretry=10 --timeout=60 \
+            --retry-on-http-error=429,500,502,503,504 \
+            -O "${SCCACHE_ARCHIVE}" "${SCCACHE_URL}"
+        printf '%s  %s\n' "${SCCACHE_ARCHIVE_SHA256}" "${SCCACHE_ARCHIVE}" \
             | sha256sum -c -
-        chmod 755 "${SCCACHE_RUSTUP_INIT}"
-        "${SCCACHE_RUSTUP_INIT}" \
-            -y \
-            --no-modify-path \
-            --profile minimal \
-            --default-toolchain "${SCCACHE_RUST_TOOLCHAIN}"
-
-        "${CARGO_HOME}/bin/cargo" install sccache \
-            --git "${SCCACHE_SOURCE_URL}" \
-            --rev "${SCCACHE_SOURCE_COMMIT}" \
-            --locked \
-            --no-default-features \
-            --features=s3 \
-            --bin sccache \
-            --root /usr/local \
-            --no-track \
-            --force
+        tar -xzf "${SCCACHE_ARCHIVE}" -C "${SCCACHE_TMPDIR}"
+        install -m 755 \
+            "${SCCACHE_TMPDIR}/${SCCACHE_STEM}/sccache" \
+            /usr/local/bin/sccache
         ;;
     *)
         echo "${CACHE_BINARY} is not installed; automatic installation supports only ccache and sccache"
