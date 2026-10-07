@@ -1,4 +1,5 @@
 import pytest
+
 from jax_toolbox_triage.args import parse_args
 
 test_command = ["my-test-command"]
@@ -71,6 +72,18 @@ def test_good_local_args():
     assert args.container_runtime == "local"
     assert "jax" in args.passing_versions
     assert "xla" in args.failing_versions
+
+
+def test_missing_metric_retries():
+    assert parse_args(valid_local_args + test_command).missing_metric_retries == 1
+    assert (
+        parse_args(
+            valid_local_args + ["--missing-metric-retries=3"] + test_command
+        ).missing_metric_retries
+        == 3
+    )
+    with pytest.raises(Exception, match="must be non-negative"):
+        parse_args(valid_local_args + ["--missing-metric-retries=-1"] + test_command)
 
 
 @pytest.mark.parametrize("date_args", valid_start_end_date_args)

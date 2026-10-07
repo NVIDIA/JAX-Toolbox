@@ -1,14 +1,16 @@
+import logging
+import os
+import pathlib
+import shutil
+import subprocess
+import uuid
+
+import pytest
+
 from jax_toolbox_triage.args import parse_args
 from jax_toolbox_triage.container_factory import make_container
 from jax_toolbox_triage.logic import CouldNotReproduceFailure, CouldNotReproduceSuccess
 from jax_toolbox_triage.triage_tool import TriageTool
-import logging
-import os
-import pathlib
-import pytest
-import shutil
-import subprocess
-import uuid
 
 srun_available = shutil.which("srun") is not None and "SLURM_JOBID" in os.environ
 docker_available = shutil.which("docker") is not None
@@ -99,7 +101,11 @@ def failing_container_with_later_version(logger):
 
 @pytest.fixture
 def run_with_plugin_backend(logger, tmp_path):
-    def wrapped(*, tool=[], plugin=[]):
+    def wrapped(*, tool=None, plugin=None):
+        if tool is None:
+            tool = []
+        if plugin is None:
+            plugin = []
         arg_list = (
             [
                 "--output-prefix",

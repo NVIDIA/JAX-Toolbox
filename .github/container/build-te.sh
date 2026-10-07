@@ -127,7 +127,7 @@ NVTE_CUDA_ARCHS="${SM_LIST//,/;}"
 set -x
 export NVTE_CUDA_ARCHS="${NVTE_CUDA_ARCHS//./}"
 # Parallelism within nvcc invocations.
-export NVTE_BUILD_THREADS_PER_JOB=8
+export NVTE_BUILD_THREADS_PER_JOB="${NVTE_BUILD_THREADS_PER_JOB:-8}"
 export NVTE_FRAMEWORK=jax
 # TransformerEngine needs FFI headers from XLA
 export XLA_HOME=${SRC_PATH_XLA}
@@ -199,6 +199,10 @@ fi
 
 # The wheel filename includes the TE commit; if this has changed since the last
 # incremental build then we would end up with multiple wheels.
+
+# ensure TE uses a consistent short sha length
+git -C "${SRC_PATH_TE}" config --local core.abbrev 9
+
 rm -fv dist/*.whl
 python setup.py bdist_wheel
 popd

@@ -1,7 +1,8 @@
+import logging
+import pathlib
 import subprocess
 import tempfile
-import pathlib
-import logging
+
 import pytest
 
 from jax_toolbox_triage.args import parse_args

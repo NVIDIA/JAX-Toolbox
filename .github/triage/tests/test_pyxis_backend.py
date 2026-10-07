@@ -1,11 +1,11 @@
 import functools
 import logging
 import pathlib
-import pytest
 import shutil
 import subprocess
 import tempfile
 
+import pytest
 
 from jax_toolbox_triage.args import compulsory_software, parse_args
 from jax_toolbox_triage.triage_tool import InconsistentResults, TriageTool

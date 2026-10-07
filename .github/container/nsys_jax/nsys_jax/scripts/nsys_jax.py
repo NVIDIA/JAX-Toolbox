@@ -605,6 +605,7 @@ def main() -> None:
         if len(src_files) == 0:
             print("WARNING: no source files were gathered")
         # Copy these files into the output archive.
+        missing_src_files = []
         for src_file in src_files:
             if src_file == "<string>":
                 # This can appear due to python -c "...", for example.
@@ -612,7 +613,17 @@ def main() -> None:
             if src_file == "<frozen runpy>":
                 continue
             assert osp.isabs(src_file), f"{src_file} is not absolute"
+            if not osp.exists(src_file):
+                # The metadata can refer to files that are not visible here, e.g. if
+                # the .hlo.pb files were produced on a different machine/container.
+                missing_src_files.append(src_file)
+                continue
             output_queue.put(("sources" + src_file, src_file, COMPRESS_DEFLATE))
+        if len(missing_src_files):
+            print(
+                f"WARNING: not embedding {len(missing_src_files)} source file(s) that "
+                f"do not exist: {', '.join(sorted(missing_src_files))}"
+            )
         print(f"{archive_name}: gathered source code in {time.time() - start:.2f}s")
 
     def execute_analysis_scripts(mirror_dir, analysis_scripts):

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import argparse
 import datetime
 import logging
-import typing
 
 from .container import Container
 
@@ -15,7 +16,7 @@ def get_commit_history(
     main_branch: str,
     logger: logging.Logger,
     args: argparse.Namespace,
-) -> typing.Tuple[typing.List[typing.Tuple[str, datetime.datetime]], typing.List[str]]:
+) -> tuple[list[tuple[str, datetime.datetime]], list[str]]:
     """
     Get the commit history for a given package between two commits.
 
