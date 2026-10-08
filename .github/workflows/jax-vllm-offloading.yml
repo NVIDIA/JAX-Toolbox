@@ -251,7 +251,7 @@ jobs:
           NCCL_DEBUG_SUBSYS=INIT,ENV,NET;
         COMMAND: |
           set -x;
-          python -m pip install --upgrade huggingface-hub==1.17.0;
+          python -m pip install --upgrade huggingface-hub==0.36.2
           MODEL_PATH=\$(hf download \${MODEL_NAME} --quiet);
           cd /opt/jtbx/jax-inference-offloading/examples/decoupled_synchronous;
           timeout --kill-after=30s 900s bash ./decoupled_sync.sh \
