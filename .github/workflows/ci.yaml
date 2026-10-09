@@ -92,7 +92,7 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
-      IS_SCALE_TRAINING: ${{ steps.run-type.outputs.IS_SCALE_TRAINING }}
+      IS_STAGING: ${{ steps.run-type.outputs.IS_STAGING }}
       SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
@@ -163,15 +163,15 @@ jobs:
           fi
           echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
 
-      - name: Determine whether this is a scale-training run
+      - name: Determine whether this is a -staging run
         id: run-type
         shell: bash -x -e {0}
         run: |
           if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
-            echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
+            echo "IS_STAGING=true" >> $GITHUB_OUTPUT
             echo "SUFFIX=-staging" >> $GITHUB_OUTPUT
           else
-            echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
+            echo "IS_STAGING=false" >> $GITHUB_OUTPUT
             echo "SUFFIX=" >> $GITHUB_OUTPUT
           fi
 
@@ -250,12 +250,13 @@ jobs:
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
 
-          if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
+          if [[ "${{ needs.metadata.outputs.IS_STAGING }}" == "true" ]]; then
             xla_ref=$(python3 .github/workflows/scripts/extract_commits.py)
             echo "$xla_ref" | jq
 
             XLA_URLREF=$(jq -er '.urlref' <<< "$xla_ref")
-            JAX_URLREF="https://github.com/jax-ml/jax#main"
+            JAX_COMMIT=$(jq -er '.jax_commit' <<< "$xla_ref")
+            JAX_URLREF="https://github.com/jax-ml/jax.git#${JAX_COMMIT}"
             urlrefs=$(
               jq -c \
                 --arg xla "$XLA_URLREF" \
