@@ -9,6 +9,7 @@ import pytest
 from jax_toolbox_triage.logic import (
     _EXIT_CODE_METRIC,
     ClassifiedTestOutcome,
+    CouldNotReproduceDesiredOutcome,
     ExitCodeClassifier,
     TestExecutionOutcome,
     TestResult,
@@ -577,9 +578,27 @@ def test_version_search_no_commits(logger, commits):
         )
 
 
-@pytest.mark.parametrize("value", [True, False])
-def test_version_search_static_test_function(logger, value):
-    with pytest.raises(Exception, match="Could not reproduce"):
+@pytest.mark.parametrize(
+    "value,expected_outcome,actual_outcome",
+    [
+        (
+            True,
+            ClassifiedTestOutcome.FAIL,
+            ClassifiedTestOutcome.PASS,
+        ),
+        (
+            False,
+            ClassifiedTestOutcome.PASS,
+            ClassifiedTestOutcome.FAIL,
+        ),
+    ],
+)
+def test_version_search_static_test_function(
+    logger, value, expected_outcome, actual_outcome
+):
+    with pytest.raises(
+        CouldNotReproduceDesiredOutcome, match="Could not reproduce"
+    ) as error:
         version_search(
             build_and_test=lambda **kwargs: wrap(value),
             versions=make_commits(
@@ -589,6 +608,8 @@ def test_version_search_static_test_function(logger, value):
             logger=logger,
             skip_precondition_checks=False,
         )
+    assert error.value.expected_outcome == expected_outcome
+    assert error.value.actual_outcome == actual_outcome
 
 
 far_future = datetime.date(year=2100, month=1, day=1)
