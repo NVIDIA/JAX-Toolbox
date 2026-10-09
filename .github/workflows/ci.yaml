@@ -430,6 +430,7 @@ jobs:
             equinox
             maxtext
             axlearn
+            alphafold
             torchax
           )
           declare -a STAGES=(
