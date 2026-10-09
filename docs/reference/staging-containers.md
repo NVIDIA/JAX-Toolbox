@@ -8,7 +8,7 @@ JAX-Toolbox staging containers host pending NVIDIA-authored XLA enhancements for
 NVIDIA GPUs. These are pending PRs that are awaiting upstream review and merge in
 the OSS OpenXLA repository. These are exposed as tags in this repository:
 https://github.com/NVIDIA/xla_staging/tags and containers based on those commits
-are published from JAX-Toolbox on the GitHub Container registry each Saturday.
+are published from JAX-Toolbox on the GitHub Container registry every other Saturday.
 
 ## Staging releases
 
