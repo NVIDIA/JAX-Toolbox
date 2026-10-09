@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 7 * * *'
       timezone: "Europe/London"
-    - cron: '0 0 * * 6' # Saturday scale-training run
+    - cron: '0 0 * * 6' # Fortnightly scale-training run; metadata skips alternate weeks
       timezone: "Europe/London"
   push:
     branches:
@@ -92,7 +92,8 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
-      IS_SCALE_TRAINING: ${{ steps.run-type.outputs.IS_SCALE_TRAINING }}
+      SHOULD_RUN: ${{ steps.schedule.outputs.SHOULD_RUN }}
+      IS_STAGING: ${{ steps.run-type.outputs.IS_STAGING }}
       SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
@@ -104,6 +105,29 @@ jobs:
                 -H "Accept: application/vnd.github.v3+json" \
                 "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
           while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
+
+      - name: Check fortnightly staging schedule
+        id: schedule
+        shell: python
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          import datetime
+          import os
+          from zoneinfo import ZoneInfo
+
+          should_run = True
+          if os.environ["GITHUB_EVENT_NAME"] == "schedule" and os.environ["SCHEDULE"] == "0 0 * * 6":
+              # First scheduled staging Saturday; repeat every two calendar weeks.
+              anchor = datetime.date(2026, 10, 10)
+              today = datetime.datetime.now(ZoneInfo("Europe/London")).date()
+              days_since_anchor = (today - anchor).days
+              should_run = days_since_anchor >= 0 and (days_since_anchor // 7) % 2 == 0
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"SHOULD_RUN={str(should_run).lower()}", file=output)
+          if not should_run:
+              print("Skipping this week's scheduled staging pipeline.")
 
       - name: Set build date
         id: date
@@ -163,20 +187,21 @@ jobs:
           fi
           echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
 
-      - name: Determine whether this is a scale-training run
+      - name: Determine whether this is a -staging run
         id: run-type
         shell: bash -x -e {0}
         run: |
           if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
-            echo "IS_SCALE_TRAINING=true" >> $GITHUB_OUTPUT
-            echo "SUFFIX=-scale-training" >> $GITHUB_OUTPUT
+            echo "IS_STAGING=true" >> $GITHUB_OUTPUT
+            echo "SUFFIX=-staging" >> $GITHUB_OUTPUT
           else
-            echo "IS_SCALE_TRAINING=false" >> $GITHUB_OUTPUT
+            echo "IS_STAGING=false" >> $GITHUB_OUTPUT
             echo "SUFFIX=" >> $GITHUB_OUTPUT
           fi
 
   bump-manifest:
     needs: metadata
+    if: needs.metadata.outputs.SHOULD_RUN == 'true'
     runs-on: ubuntu-22.04
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
@@ -250,12 +275,13 @@ jobs:
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
 
-          if [[ "${{ needs.metadata.outputs.IS_SCALE_TRAINING }}" == "true" ]]; then
+          if [[ "${{ needs.metadata.outputs.IS_STAGING }}" == "true" ]]; then
             xla_ref=$(python3 .github/workflows/scripts/extract_commits.py)
             echo "$xla_ref" | jq
 
             XLA_URLREF=$(jq -er '.urlref' <<< "$xla_ref")
-            JAX_URLREF="https://github.com/jax-ml/jax#main"
+            JAX_COMMIT=$(jq -er '.jax_commit' <<< "$xla_ref")
+            JAX_URLREF="https://github.com/jax-ml/jax.git#${JAX_COMMIT}"
             urlrefs=$(
               jq -c \
                 --arg xla "$XLA_URLREF" \
@@ -299,7 +325,7 @@ jobs:
   # Only merge if everything succeeds
   merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
+    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
       - amd64
@@ -410,7 +436,7 @@ jobs:
 
   make-publish-configs:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() }}
+    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' }}
     env:
       MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
       FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
@@ -499,7 +525,7 @@ jobs:
     needs:
       - metadata
       - make-publish-configs
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
@@ -515,7 +541,7 @@ jobs:
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' }}
     uses: ./.github/workflows/_finalize.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
