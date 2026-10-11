@@ -32,6 +32,11 @@ inputs:
     default: 2
     required: false
     type: string
+  NUM_GPUS:
+    description: 'Number of GPUs to use in JobSet'
+    default: 8
+    required: false
+    type: string
   MAIN_CONTAINER_NAME:
     description: 'Name of the main contianer in an XPK JobSet (fixed in xpk)'
     default: gpu-image
@@ -65,7 +70,7 @@ inputs:
   EXIT_COMMAND:
     description: 'Command to set exit code'
     required: false
-    default: 'exit \$EXIT_CODE'
+    default: 'echo EXIT_CODE=\$EXIT_CODE; exit \$EXIT_CODE'
     type: string
   NAME:
     description: 'Workload name prefix for XPK, also used to name uploaded artifact'
@@ -195,34 +200,32 @@ runs:
     run: |
       # install dependencies to enable export artifacts from container to gcs bucket
       PRELUDE="
-          apt install -y ripgrep > /dev/null;
-          curl -LO https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz;
-          tar xf google-cloud-cli-linux-x86_64.tar.gz;
-          ./google-cloud-sdk/install.sh --quiet > /dev/null;
-          ./google-cloud-sdk/bin/gcloud init;
+          apt update; apt install -y ripgrep > /dev/null;
+          curl -L https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz -o /tmp/google-cloud-cli-linux-x86_64.tar.gz;
+          tar -C /opt -xf /tmp/google-cloud-cli-linux-x86_64.tar.gz;
+          /opt/google-cloud-sdk/install.sh --quiet > /dev/null;
+          /opt/google-cloud-sdk/bin/gcloud init;
 
           mkdir -p /usr/share/workload;
-          mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};"
+          mkdir -p ${{ inputs.CONTAINER_OUTPUT_PATH }};
 
-      PRELUDE+="
-          test -f \${NCCL_LIB_DIR}/nccl-env-profile.sh && NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
-          export LD_LIBRARY_PATH=\${NCCL_LIB_DIR}:\${LD_LIBRARY_PATH};
-          export NCCL_TUNER_CONFIG_PATH=\${NCCL_LIB_DIR}/a3plus_tuner_config.textproto;
-          export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=\${NCCL_LIB_DIR}/a3plus_guest_config.textproto;
+          NCCL_LIB_DIR=\${NCCL_LIB_DIR} . \${NCCL_LIB_DIR}/nccl-env-profile.sh;
       "
 
       # gsutil command to export logs from container's /opt/output to bucket
       POSTLUDE="
-          ./google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/node-0\$NODE_RANK;
+          COMMAND_EXIT_CODE=\$?;
+          if [ -z \${EXIT_CODE:-} ]; then EXIT_CODE=\${COMMAND_EXIT_CODE}; fi;
+          /opt/google-cloud-sdk/bin/gsutil cp -r ${{ inputs.CONTAINER_OUTPUT_PATH }}/ ${GCS_ARTIFACT_PATH}/;
           ${{ inputs.EXIT_COMMAND }}
       "
 
       CMD="${{ inputs.COMMAND }}"
 
       # set container commands in-line
-      PRELUDE=$(echo ${PRELUDE} | sed 's/\n/\ /g')
-      POSTLUDE=$(echo ${POSTLUDE} | sed 's/\n/\ /g')
-      CMD=$(echo ${CMD} | sed 's/\n/\ /g')
+      PRELUDE=$(printf '%s\n' "${PRELUDE}" | paste -sd ' ' - )
+      POSTLUDE=$(printf '%s\n' "${POSTLUDE}" | paste -sd ' ' - )
+      CMD=$(printf '%s\n' "${CMD}" | paste -sd ' ' - )
 
       echo "CMD=${PRELUDE} ${CMD} ${POSTLUDE}" >> ${GITHUB_ENV}
 
@@ -318,6 +321,7 @@ runs:
       echo "JobSet ${JOBSET_NAME} has just become active in the cluster"
 
   - name: Set JobSet Pods
+    if: steps.check.outputs.online == 'true'
     shell: bash -u {0}
     run: |
       echo "JOBSET_PODS=($(kubectl get pods -o json | jq -r '.items[].metadata | select(.labels."jobset.sigs.k8s.io/jobset-name" == "'${JOBSET_NAME}'") | .name' | tr '\n' ' '))" >> ${GITHUB_ENV}
@@ -341,7 +345,7 @@ runs:
       mkdir -p ${JOBSET_NAME}
 
       for jobset_pod in ${JOBSET_PODS//[()]/}; do
-          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c gpu-image ${jobset_pod} 2>&1 | tee -a ${JOBSET_NAME}/${jobset_pod}.log &
+          kubectl logs --pod-running-timeout=1m -f --prefix=true --timestamps=true -c ${{ inputs.MAIN_CONTAINER_NAME }} ${jobset_pod} 2>&1 | tee -a ${JOBSET_NAME}/${jobset_pod}.log &
       done
       wait < <(jobs -p)
 
@@ -379,28 +383,28 @@ runs:
       exit 0
 
   - name: Clean up JobSet from cluster
-    if: steps.check.outputs.online == 'true'
+    if: ${{ always() && steps.check.outputs.online == 'true' }}
     shell: bash -x -u {0}
     run: |
       kubectl delete jobset --wait ${JOBSET_NAME} || echo "JobSet ${JOBSET_NAME} does not exist"
 
   - name: Download artifacts from GCS to runner
-    if: steps.check.outputs.online == 'true'
+    if: ${{ !cancelled() && steps.check.outputs.online == 'true' }}
     shell: bash -x -u {0}
     run: |
       mkdir -p ${JOBSET_NAME}/output
-      gsutil cp -r ${GCS_ARTIFACT_PATH} ${JOBSET_NAME}/output
+      gsutil cp -r ${GCS_ARTIFACT_PATH} ${JOBSET_NAME}
       cp ${JOBSET_NAME}/*.log ${JOBSET_NAME}/output
 
   - name: Upload artifacts to GitHub Actions from runner
-    if: steps.check.outputs.online == 'true'
+    if: ${{ !cancelled() && steps.check.outputs.online == 'true' }}
     uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.NAME }}
       path: ${{ env.JOBSET_NAME }}/output/*
 
   - name: Emit unit test statistics
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && steps.check.outputs.online == 'true' }}
     shell: bash -xe -u {0}
     run: |
       STATISTICS_SCRIPT="${{ inputs.STATISTICS_SCRIPT }}"
@@ -411,7 +415,6 @@ runs:
         BADGE_COLOR=red
         BADGE_MESSAGE=error
         SUMMARY="${{ inputs.NAME }} unit test on ${{ inputs.GPU_ARCH }} did not complete due to errors."
-        continue
       else
         if [[ ${NUM_FAILED} == 0 ]]; then
           BADGE_COLOR=brightgreen
@@ -438,7 +441,7 @@ runs:
       > badge-${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}.json
 
   - name: Upload statistics artifacts
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && steps.check.outputs.online == 'true' }}
     uses: actions/upload-artifact@v6
     with:
       name: ${{ inputs.NAME }}-${{ inputs.GPU_ARCH }}
@@ -450,4 +453,4 @@ runs:
     if: ${{ always() }}
     shell: bash -x -u {0}
     run: |
-      sudo rm -rf ${JOBSET_NAME}
+      sudo rm -rf ${JOBSET_NAME:-} || echo done

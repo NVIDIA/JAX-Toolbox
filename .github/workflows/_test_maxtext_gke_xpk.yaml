@@ -45,6 +45,8 @@ jobs:
       with:
         IMAGE: ${{ inputs.MAXTEXT_IMAGE }}
         NAME: ${{ matrix.test }}
+        ENVS: |
+            CUDNN_FRONTEND_CUDART_LIB_NAME=libcudart.so.13
         COMMAND: |
           source \${NCCL_LIB_DIR}/nccl-env-profile.sh;
           nsys-jax --capture-range=cudaProfilerApi \
@@ -56,7 +58,7 @@ jobs:
                                    --model-name=${{ matrix.model }} \
                                    --attn-type=${{ matrix.attention }} \
                                    --remat-policy=${{ matrix.remat-policy }} \
-                                   --steps=10 \
+                                   --steps=20 \
                                    --pipeline-parallel ${{ matrix.pipeline-parallel }} \
                                    --data-parallel ${{ matrix.data-parallel }} \
                                    --fsdp ${{ matrix.fsdp }} \
@@ -68,8 +70,8 @@ jobs:
                                        logits_dot_in_fp32=false
                                        profiler=nsys
                                        upload_all_profiler_results=true
-                                       skip_first_n_steps_for_profiler=3
-                                       profiler_steps=8' |&
+                                       skip_first_n_steps_for_profiler=10
+                                       profiler_steps=10' |&
           tee /opt/output/output.log &> /dev/stdout;
           EXIT_CODE=\${PIPESTATUS[0]};
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
