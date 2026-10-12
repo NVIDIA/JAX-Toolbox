@@ -15,6 +15,11 @@ XLA_OWNER = "NVIDIA"
 XLA_REPO = "xla_staging"
 XLA_BRANCH = "nv/staging"
 TAG_PATTERN = re.compile(r"^staging-(\d{4}-\d{2}-\d{2})$")
+JAX_COMMIT_PATTERN = re.compile(
+    r"^JAX commit tested against:[ \t]*\[[^\]\r\n]+\]\("
+    r"https://github\.com/jax-ml/jax/commit/([0-9a-fA-F]{40})\)",
+    re.MULTILINE,
+)
 
 
 def github_headers() -> dict[str, str]:
@@ -56,6 +61,29 @@ def fetch_tags() -> list[dict[str, Any]]:
         page += 1
 
 
+def fetch_tag_message(tag_name: str) -> str:
+    """Return an annotated tag's message using its tag-object SHA."""
+    api_url = f"https://api.github.com/repos/{XLA_OWNER}/{XLA_REPO}"
+    encoded_tag = urllib.parse.quote(tag_name, safe="")
+    ref = return_json_from_url(f"{api_url}/git/ref/tags/{encoded_tag}")
+    tag_object = ref["object"]
+    if tag_object["type"] != "tag":
+        raise RuntimeError(
+            f"{tag_name} is a lightweight tag and has no annotation message"
+        )
+
+    tag = return_json_from_url(f"{api_url}/git/tags/{tag_object['sha']}")
+    return tag["message"]
+
+
+def extract_jax_commit(message: str) -> str:
+    """Extract the full tested JAX commit SHA from the annotation's link."""
+    match = JAX_COMMIT_PATTERN.search(message)
+    if match is None:
+        raise RuntimeError("No full tested JAX commit SHA found in the tag message")
+    return match.group(1)
+
+
 def latest_staging_tag(tags: list[dict[str, Any]]) -> tuple[str, str]:
     """Return the newest date-formatted staging tag and its commit SHA."""
     candidates: list[tuple[datetime.date, str, str]] = []
@@ -90,12 +118,15 @@ def latest_staging_tag(tags: list[dict[str, Any]]) -> tuple[str, str]:
 def xla_ref(tags: list[dict[str, Any]]) -> dict[str, str]:
     """Build the XLA source-ref payload consumed by ci.yaml."""
     xla_tag, xla_commit = latest_staging_tag(tags)
+    message = fetch_tag_message(xla_tag)
     return {
         "repository": XLA_REPOSITORY,
         "branch": XLA_BRANCH,
         "tag": xla_tag,
         "commit": xla_commit,
         "urlref": f"{XLA_REPOSITORY}#{xla_tag}",
+        "message": message,
+        "jax_commit": extract_jax_commit(message),
     }
 
 
