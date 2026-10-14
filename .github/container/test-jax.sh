@@ -137,6 +137,12 @@ else
     FLAGS+=("--test_env=JAX_ENABLE_X64=false")
 fi
 
+# Forward caller-provided XLA flags into Bazel test environments.
+# Leave the default test environment unchanged when XLA_FLAGS is unset or empty.
+if [[ -n "${XLA_FLAGS:-}" ]]; then
+    FLAGS+=("--test_env=XLA_FLAGS=${XLA_FLAGS}")
+fi
+
 if [[ $BUILD_JAXLIB -eq 1 ]]; then
     FLAGS+=("--//jax:build_jaxlib=true")
 else
@@ -232,3 +238,4 @@ print_var VISIBLE_GPUS
 cd ${SRC_PATH_JAX}
 set -ex
 bazel test "${FLAGS[@]}"
+
