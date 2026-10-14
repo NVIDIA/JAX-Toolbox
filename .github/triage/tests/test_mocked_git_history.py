@@ -253,3 +253,94 @@ def test_triage_scenarios(
 
     assert result.get("jax_good") == all_commits[expected_good_key]
     assert result.get("jax_bad") == all_commits[bad_commit_key]
+
+
+@pytest.mark.parametrize(
+    "history,candidate_keys,expected_log",
+    [
+        ("linear", ["bad_commit_for_linear"], "Bisected failure to jax"),
+        ("linear", ["failing_linear"], "known failing candidate vector"),
+        ("linear", ["good_linear"], "known passing candidate vector"),
+        (
+            "linear",
+            ["good_linear", "bad_commit_for_linear"],
+            "Bisected failure to jax",
+        ),
+        ("nonlinear", ["bad_main"], "Bisected failure to jax"),
+    ],
+)
+def test_specific_commit_validation_and_fallback(
+    caplog,
+    triage_env,
+    monkeypatch,
+    history,
+    candidate_keys,
+    expected_log,
+):
+    caplog.set_level(logging.DEBUG)
+    paths = triage_env["paths"]
+    commits = triage_env["commits"]
+    jax_repo_path = paths["repo"] / "jax"
+    scenario = {
+        "linear": {
+            "passing": "good_linear",
+            "failing": "failing_linear",
+            "culprit": "bad_commit_for_linear",
+            "expected_good": "good_linear",
+            "main_branch": "linear_feature_branch",
+        },
+        "nonlinear": {
+            "passing": "passing_nonlinear",
+            "failing": "failing_nonlinear",
+            "culprit": "bad_main",
+            "expected_good": "good_main",
+            "main_branch": "main",
+        },
+    }[history]
+    passing_commit = commits[scenario["passing"]]
+    failing_commit = commits[scenario["failing"]]
+    culprit_commit = commits[scenario["culprit"]]
+    expected_good_commit = commits[scenario["expected_good"]]
+    commit_args = [
+        argument
+        for candidate_key in candidate_keys
+        for argument in ["--commit", f"jax:{commits[candidate_key]}"]
+    ]
+
+    args = parse_args(
+        [
+            "--main-branch",
+            scenario["main_branch"],
+            "--output-prefix",
+            str(paths["output"]),
+            "--container-runtime",
+            "local",
+            "--passing-versions",
+            f"jax:{passing_commit}",
+            "--failing-versions",
+            f"jax:{failing_commit}",
+            "--confirmation-iterations",
+            "0",
+        ]
+        + commit_args
+        + [
+            "--",
+            str(paths["scripts"] / "test-case.sh"),
+            str(jax_repo_path),
+            culprit_commit,
+        ]
+    )
+    monkeypatch.setenv("PATH", str(paths["scripts"]), prepend=":")
+
+    tool = TriageTool(args, logging.getLogger())
+    tool.package_dirs = {"jax": str(jax_repo_path)}
+    tool.dynamic_packages = {"jax"}
+    tool.bisection_url = "local"
+
+    summary_data = tool.run_version_bisection(
+        {"jax": passing_commit}, {"jax": failing_commit}
+    )
+
+    assert summary_data["result"]["jax_good"] == expected_good_commit
+    assert summary_data["result"]["jax_bad"] == culprit_commit
+    assert expected_log in caplog.text
