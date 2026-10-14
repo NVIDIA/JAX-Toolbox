@@ -238,4 +238,3 @@ print_var VISIBLE_GPUS
 cd ${SRC_PATH_JAX}
 set -ex
 bazel test "${FLAGS[@]}"
-
