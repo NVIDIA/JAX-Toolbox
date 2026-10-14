@@ -46,7 +46,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,maxtext,TorchAX} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,equinox,maxtext,TorchAX} (case-insensitive)
         default: ''
         required: false
       MODE:
@@ -57,8 +57,7 @@ on:
           - jax - run all the tests related to jax system
           - te - run all the tests related to TE
           - maxtext - run only the tests for maxtext
-          - axlearn - run only the tests for axlearn
-        options: [full, jax, te, maxtext, axlearn]
+        options: [full, jax, te, maxtext]
         default: full
       SCALE_TRAINING:
         type: boolean
@@ -455,7 +454,6 @@ jobs:
             jax
             equinox
             maxtext
-            axlearn
             alphafold
             torchax
           )
