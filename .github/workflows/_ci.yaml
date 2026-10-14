@@ -283,33 +283,6 @@ jobs:
           EXTRA_BUILD_ARGS: |
             URLREF_TORCHAX=${{ fromJson(inputs.SOURCE_URLREFS).TORCHAX }}
 
-  build-axlearn:
-    needs: build-jax
-    runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
-    outputs:
-      DOCKER_TAG_MEALKIT: ${{ steps.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}
-      DOCKER_TAG_FINAL:   ${{ steps.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-      - name: Build AxLearn container
-        id: build-axlearn
-        uses: ./.github/actions/build-container
-        with:
-          ARCHITECTURE: ${{ inputs.ARCHITECTURE }}
-          ARTIFACT_NAME: artifact-axlearn-build
-          BADGE_FILENAME: badge-axlearn-build
-          BUILD_DATE: ${{ inputs.BUILD_DATE }}
-          BASE_IMAGE: ${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}
-          CONTAINER_NAME: axlearn
-          DOCKERFILE: .github/container/Dockerfile.axlearn
-          RUNNER_SIZE: large
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          EXTRA_BUILD_ARGS: |
-            URLREF_AXLEARN=${{ fromJson(inputs.SOURCE_URLREFS).AXLEARN }}
-
   build-alphafold:
     needs: build-jax
     runs-on: ${{ inputs.ARCHITECTURE == 'amd64' && 'linux-amd64-cpu16m' || 'linux-arm64-cpu16m' }}
@@ -346,7 +319,6 @@ jobs:
       - build-jax
       - build-equinox
       - build-maxtext
-      - build-axlearn
       - build-alphafold
     outputs:
       TAGS: ${{ steps.collect-tags.outputs.TAGS }}
@@ -360,11 +332,9 @@ jobs:
             {"flavor": "jax",          "stage": "final",   "priority": 1000, "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "equinox",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "maxtext",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}"},\
-            {"flavor": "axlearn",      "stage": "final",   "priority": 900,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}"},\
             {"flavor": "jax",          "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-jax.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "equinox",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-equinox.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "maxtext",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-maxtext.outputs.DOCKER_TAG_MEALKIT }}"},\
-            {"flavor": "axlearn",      "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-axlearn.outputs.DOCKER_TAG_MEALKIT }}"},\
             {"flavor": "alphafold",    "stage": "mealkit", "priority": 500,  "tag": "${{ needs.build-alphafold.outputs.DOCKER_TAG_MEALKIT }}"},\
             {}\
           ]
@@ -701,67 +671,6 @@ jobs:
     with:
       MAXTEXT_IMAGE: ${{ needs.build-maxtext.outputs.DOCKER_TAG_FINAL }}
     secrets: inherit
-
-  test-axlearn-eks:
-    needs: build-axlearn
-    if: >-
-      inputs.ARCHITECTURE == 'amd64' &&
-      (
-        inputs.MODE == 'full' ||
-        inputs.MODE == 'axlearn'
-      )
-    runs-on: eks
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
-        with:
-          NAME: axlearn-unit
-          NUM_GPUS: 8
-          IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-          COMMAND: |
-            pip install pytest-reportlog pytest-xdist;
-            LOG_DIR=/opt/output;
-            mkdir -p \${LOG_DIR};
-            pytest-xdist.sh 8 4 \${LOG_DIR}/axlearn-unittests.jsonl test-axlearn.sh --directory . --output \${LOG_DIR} --test-files '/opt/axlearn/axlearn/common/*_test.py'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
-          STATISTICS_SCRIPT: |
-            summary_file=\${JOBSET_NAME}/logs/summary.txt;
-            NUM_ERRORS=0;
-            NUM_PASSED=\$(grep -Eo 'PASSED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
-            NUM_FAILED=\$(grep -Eo 'FAILED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
-            NUM_SKIPPED=\$(grep -Eo 'SKIPPED:[[:space:]]*[0-9]+' \${summary_file} | grep -Eo '[0-9]+' || echo 0);
-            NUM_TESTS=\$((NUM_FAILED + NUM_PASSED + NUM_SKIPPED));
-
-  test-axlearn-fuji-models-eks:
-    needs: build-axlearn
-    if: >-
-      inputs.ARCHITECTURE == 'amd64' &&
-      (
-        inputs.MODE == 'full' ||
-        inputs.MODE == 'axlearn'
-      )
-    runs-on: eks
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run eks-jobset action
-        uses: ./.github/actions/eks-jobset
-        with:
-          NAME: axlearn-fuji-3b
-          NUM_GPUS: 8
-          IMAGE: ${{ needs.build-axlearn.outputs.DOCKER_TAG_FINAL }}
-          ENVS: |
-            OFI_NCCL_PROTOCOL=SENDRECV
-          COMMAND: |
-            CONFIG=fuji-3B-v3-flash;
-            LOG_DIR=/opt/output;
-            TRAINER_DIR=\${LOG_DIR}/\${CONFIG}-eks/trainer-dir;
-            mkdir -p \${TRAINER_DIR};
-            OUTPUT_LOG_FILE=\${TRAINER_DIR}/output.log;
-            python3 /usr/local/bin/fuji-train-perf.py --module=text.gpt.c4_trainer --config=\${CONFIG} --jax_backend=gpu --trainer_dir=\${TRAINER_DIR} --data_dir=gs://axlearn-public/tensorflow_datasets --ici_fsdp=8 --dcn_dp=1 --gbs=16 --ga=1 --seq_len=4096 --max_step=301 --save_checkpoint_steps=100 --write_summary_steps=100 --output_log_file=\${OUTPUT_LOG_FILE} --world_size=8
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NVCR_TOKEN: ${{ secrets.NVCR_TOKEN }}
 
   test-alphafold-inference:
     needs: build-alphafold
