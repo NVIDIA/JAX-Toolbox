@@ -38,8 +38,6 @@ navigation:
             path: frameworks/maxtext/README.md
           - page: NVFP4 Training Example
             path: frameworks/maxtext/nvfp4/README.md
-      - page: AXLearn
-        path: frameworks/axlearn/README.md
 
   # ==================== Performance & Profiling ====================
   - section: Performance & Profiling
