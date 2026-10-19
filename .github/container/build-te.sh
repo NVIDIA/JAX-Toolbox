@@ -145,9 +145,12 @@ subprocess.run(
     [sys.executable, "-m", "pip", "install"]
     + [r for r in data["build-system"]["requires"]
        if r.startswith("pybind11") or r.startswith("cmake") or r.startswith("ninja")]
-    + [f"nvidia-cudnn-frontend=={os.environ['CUDNN_FRONTEND_VERSION']}"]
 )
 EOF
+python -m pip install \
+  --find-links https://github.com/NVIDIA/cudnn-frontend/releases/expanded_assets/v1.32.0.dev74371060 \
+  "nvidia-cudnn-frontend==1.32.0.dev74371060"
+
 if [[ "${CCACHE}" == "1" ]]; then
     # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
     if ! command -v ccache &> /dev/null; then
