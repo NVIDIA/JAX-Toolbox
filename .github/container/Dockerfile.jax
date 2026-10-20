@@ -137,6 +137,8 @@ COPY --from=builder ${SRC_PATH_TRANSFORMER_ENGINE} ${SRC_PATH_TRANSFORMER_ENGINE
 RUN <<"EOF" bash -ex
 ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl
 echo "transformer-engine @ file://$(ls ${SRC_PATH_TRANSFORMER_ENGINE}/dist/*.whl)" > /opt/pip-tools.d/requirements-te.in
+echo "--find-links https://github.com/NVIDIA/cudnn-frontend/releases/expanded_assets/v${CUDNN_FRONTEND_VERSION}" \
+  >> /opt/pip-tools.d/requirements-te.in
 echo "nvidia-cudnn-frontend==${CUDNN_FRONTEND_VERSION}" >> /opt/pip-tools.d/requirements-te.in
 EOF
 
