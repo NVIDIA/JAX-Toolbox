@@ -1,12 +1,12 @@
 jax:
   url: https://github.com/google/jax.git
   tracking_ref: main
-  latest_verified_commit: 8f4658ecdbe40cde0c43a9ab127359347943c076
+  latest_verified_commit: 64363d7b7a3bfaad193346971b54a806a7877b1b
   mode: git-clone
 xla:
   url: https://github.com/openxla/xla.git
   tracking_ref: main
-  latest_verified_commit: 6de79c2c931374dfa7e403c0626d8dd1ec0ed398
+  latest_verified_commit: a9bd5e62aef7aff707b7581234c0a7047acf37e0
   mode: git-clone
 flax:
   url: https://github.com/google/flax.git
@@ -15,10 +15,11 @@ flax:
   mode: git-clone
   patches:
     pull/3340/head: file://patches/flax/PR-3340.patch # Add Sharding Annotations to Flax Modules
+  latest_verified_commit: 479d43d102dfef3bbbfe5f21d529d0311fc920c7
 transformer-engine:
   url: https://github.com/NVIDIA/TransformerEngine.git
   tracking_ref: main
-  latest_verified_commit: 1ec33ae1191ae6644365155f8e8f618145c44cd7
+  latest_verified_commit: 491d557592d754565c5a5c669775914e40705ef5
   mode: git-clone
 pydantic:
   version: X.Y.Z
@@ -26,65 +27,65 @@ pydantic:
 dllogger:
   url: https://github.com/NVIDIA/dllogger.git
   tracking_ref: master
-  latest_verified_commit: 0540a43971f4a8a16693a9de9de73c1072020769
+  latest_verified_commit: 0478734ff7be75adde8d160e04872664d1c62e5f
   mode: pip-vcs
 jestimator:
   url: https://github.com/google-research/jestimator.git
   tracking_ref: main
-  latest_verified_commit: 6a57d35539f5193a9756a7cb846654e9b221b2e7
+  latest_verified_commit: 326824a477feef6d92e6f44175000907a72899ca
   mode: pip-vcs
 optax:
   url: https://github.com/google-deepmind/optax.git
   tracking_ref: main
-  latest_verified_commit: b4acf8eed4fe26f4b7be5337a8b72cde0ffbc3cf
+  latest_verified_commit: 9a1f892f52e28c18eec4d72b1001731cf20da532
   mode: pip-vcs
 seqio:
   url: https://github.com/google/seqio.git
   tracking_ref: main
-  latest_verified_commit: 11706e4a1e01a81ea6b3e02c5ad147028d5b94bb
+  latest_verified_commit: bfcf0676ed917cdb24dafab0ab8fc9fc4dce4e73
   mode: pip-vcs
 maxtext:
   url: https://github.com/google/maxtext.git
   tracking_ref: main
-  latest_verified_commit: 78daad198544def8274dbd656d122fbe6a0e1129
+  latest_verified_commit: d0d4b76207c07816979b147b87f23af9b2dca009
   mode: git-clone
 mlperf-logging:
   url: https://github.com/mlcommons/logging.git
   tracking_ref: master
-  latest_verified_commit: 99ba37ac267c870d7c6c17e1837aa9180a37cdc1
+  latest_verified_commit: bae9e13b4f53227b180bd3c0fc683407f889fdec
   mode: pip-vcs
 equinox:
   url: https://github.com/patrick-kidger/equinox.git
   tracking_ref: main
-  latest_verified_commit: 1e601672d38d2c4d483535070a3572d8e8508a20
+  latest_verified_commit: 3990f4b5b37c9946fa4a9d44b65bf05e5f5b5640
   mode: git-clone
 orbax-checkpoint:
   url: https://github.com/google/orbax.git
   tracking_ref: main
-  latest_verified_commit: 16c2d409e365576284dbaf190ac002b24c1f927f
+  latest_verified_commit: af5b305c6fbcbfad8e60cb249dda7d0a9323d292
   mode: pip-vcs
 pathwaysutils:
   url: https://github.com/google/pathways-utils.git
   tracking_ref: main
-  latest_verified_commit: 359776d454940ffaa337c36d1df16308d44a95a9
+  latest_verified_commit: b7673c8d47cc738283512eedbc5a6a712e0173a5
   mode: pip-vcs
 qwix:
   url: https://github.com/google/qwix.git
   tracking_ref: main
-  latest_verified_commit: 9ca25462e0342d29ebf214c78624fc262c9f6871
+  latest_verified_commit: a93a199eae5905c5893112da53d29c68e60d6d86
   mode: git-clone
 tunix:
   url: https://github.com/google/tunix.git
   tracking_ref: main
-  latest_verified_commit: d799a45d48027e27b6a08aaf7cb15e6a4f495c01
+  latest_verified_commit: 3b500cd012572fc5b10b4fe8e931cd6313ddf643
   mode: git-clone
 torchax:
   url: https://github.com/google/torchax.git
   tracking_ref: main
-  latest_verified_commit: f41e3de8526f9d4e8410bfb84660faaaf0b3ba4a
+  latest_verified_commit: a83f8ca04fb7da6b23c77de6e1b0d44a238c1fa8
   mode: git-clone
 alphafold:
   url: https://github.com/google-deepmind/alphafold3.git
   tracking_ref: main
-  latest_verified_commit: 3dfc5a91beee404474d614df1031fbdefaef3277
+  latest_verified_commit: 5e23d45bff3a4c1993516ead2ec848cb42d64c1a
   mode: git-clone
