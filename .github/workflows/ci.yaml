@@ -555,92 +555,18 @@ jobs:
     if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' && needs.metadata.outputs.IS_STAGING == 'true' && needs.metadata.outputs.PUBLISH == 'true' && needs.publish-containers.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Compose Slack payload
         id: compose
-        shell: python
         env:
           XLA_TAG: ${{ needs.bump-manifest.outputs.XLA_TAG }}
           XLA_URLREF: ${{ needs.bump-manifest.outputs.XLA_URLREF }}
           XLA_TAG_MESSAGE: ${{ needs.bump-manifest.outputs.XLA_TAG_MESSAGE }}
           BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          import json
-          import os
-
-          tag = os.environ.get("XLA_TAG", "").strip()
-          urlref = os.environ.get("XLA_URLREF", "").strip()
-          message = os.environ.get("XLA_TAG_MESSAGE", "")
-          build_date = os.environ.get("BUILD_DATE", "").strip()
-          run_url = os.environ["RUN_URL"]
-
-          if not tag:
-              raise SystemExit("XLA_TAG is empty; cannot post Slack notification")
-
-          bullets = []
-          in_section = False
-          for raw in message.splitlines():
-              line = raw.rstrip()
-              stripped = line.strip()
-              if not in_section:
-                  if stripped.lower().startswith("included changes"):
-                      in_section = True
-                  continue
-              if not stripped:
-                  if bullets:
-                      break
-                  continue
-              if stripped.startswith("- "):
-                  bullets.append(stripped[2:].strip())
-              elif stripped.startswith("-"):
-                  bullets.append(stripped[1:].strip())
-              else:
-                  break
-
-          if not bullets:
-              bullets = ["(no stacked MR merge commits since origin/main)"]
-
-          tag_url = f"https://github.com/NVIDIA/xla_staging/releases/tag/{tag}"
-          mentions = " ".join(
-              f"<@{uid}>" for uid in (
-                  "U041LNT1K7Z",
-                  "U7UU6GLAY",
-                  "U07NGSFGJ68",
-                  "U058YJACU7M",
-              )
-          )
-
-          header = f":package: *New JAX-Toolbox staging container built* for `{build_date}`"
-          tag_line = f"XLA staging tag: <{tag_url}|{tag}>"
-          run_line = f"Workflow run: <{run_url}|GitHub Actions>"
-          changes_header = "*Included changes:*"
-          change_lines = "\n".join(f"• {b}" for b in bullets)
-          cc_line = f"cc {mentions}"
-
-          text = "\n".join([
-              header,
-              tag_line,
-              run_line,
-              "",
-              changes_header,
-              change_lines,
-              "",
-              cc_line,
-          ])
-
-          payload = {
-              "channel": "#swdl-openxla-ci-health",
-              "text": text,
-              "unfurl_links": False,
-              "unfurl_media": False,
-          }
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
-              fh.write("PAYLOAD<<EOF_PAYLOAD\n")
-              fh.write(json.dumps(payload))
-              fh.write("\nEOF_PAYLOAD\n")
-
-          print(text)
+        run: python .github/workflows/scripts/notify-slack.py
 
       - name: Send Slack notification
         env:
