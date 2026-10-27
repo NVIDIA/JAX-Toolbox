@@ -552,7 +552,7 @@ jobs:
 
   notify-staging-slack:
     needs: [metadata, bump-manifest, publish-containers]
-    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' && needs.metadata.outputs.IS_STAGING == 'true' && needs.metadata.outputs.PUBLISH == 'true' && needs.publish-containers.result == 'success' }}
+    if: ${{ !cancelled() && needs.metadata.outputs.IS_STAGING == 'true' && needs.publish-containers.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
