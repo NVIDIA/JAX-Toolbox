@@ -56,5 +56,9 @@ ADD test-maxtext.sh /usr/local/bin
 FROM mealkit AS final
 
 RUN pip-finalize.sh
+RUN sed -i \
+  -e 's/_SCRIPT_PATH = os\.path\.dirname(os\.path\.abspath(__file__))//g' \
+  -e 's/sys\.path\.append(_SCRIPT_PATH)//g' \
+  /usr/local/lib/python3.12/dist-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/compiler.py
 
 WORKDIR ${SRC_PATH_MAXTEXT}
