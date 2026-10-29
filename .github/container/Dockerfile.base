@@ -134,4 +134,4 @@ ADD manifest.yaml create-distribution.sh bump.sh /opt/manifest.d/
 
 COPY patches/ /opt/manifest.d/patches/
 
-ENV CUDNN_FRONTEND_VERSION=1.32.0.dev74371060
+ENV CUDNN_FRONTEND_VERSION=1.32.0

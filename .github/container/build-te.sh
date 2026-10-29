@@ -148,8 +148,8 @@ subprocess.run(
 )
 EOF
 python -m pip install \
-  --find-links https://github.com/NVIDIA/cudnn-frontend/releases/expanded_assets/v1.32.0.dev74371060 \
-  "nvidia-cudnn-frontend==1.32.0.dev74371060"
+  --find-links https://github.com/NVIDIA/cudnn-frontend/releases/expanded_assets/v1.32.0 \
+  "nvidia-cudnn-frontend==1.32.0"
 
 if [[ "${CCACHE}" == "1" ]]; then
     # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
