@@ -11,6 +11,8 @@ ARG PYVER
 ###############################################################################
 
 FROM ${BASE_IMAGE}
+# override enroot multline label issue
+LABEL org.opencontainers.image.description="Ubuntu 26.04 JAX"
 ARG BASE_IMAGE
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
