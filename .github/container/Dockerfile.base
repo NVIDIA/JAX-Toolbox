@@ -64,6 +64,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
+RUN ln -s /opt/venv/bin/python3 /usr/local/bin/python3 \
+ && env -i PATH=/bin:/usr/bin:/usr/local/bin python3 --version
+
 RUN command -v python \
  && command -v pip \
  && python -VV \
