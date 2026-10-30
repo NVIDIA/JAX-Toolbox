@@ -15,6 +15,12 @@ pushd /opt/pip-tools.d
 # If requirements-pinned.txt exists, skip compilation
 if [[ -f "requirements-pinned.txt" ]]; then
   sed -E 's/#sha256=[a-f0-9]+//g' requirements-pinned.txt > requirements.txt
+  if [[ -f "requirements-te.in" ]]; then
+    # Use the wheel built from the selected TE source instead of its frozen path.
+    sed -i -E '/^transformer[-_]engine[[:space:]]*(@|==)/d' requirements.txt
+    grep -E '^transformer[-_]engine[[:space:]]+@[[:space:]]+file://' \
+      requirements-te.in >> requirements.txt
+  fi
 else
   # First pip-compile gathers all reqs, but we are care only about VCS installs
   # It's possible there are 2nd degree transitive dependencies that are VCS, so
