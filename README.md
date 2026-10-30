@@ -23,7 +23,7 @@ JAX Toolbox
 
 - **Resources**: Talks, presentations and ecosystem references
 
-- **Container images**: Nightly builds, monthly NGC releases, and staging containers for JAX on GPU projects
+- **Container images**: Nightly builds, monthly NGC releases, and [staging containers](docs/reference/staging-containers.md) hosting pending NVIDIA-authored XLA enhancements for JAX on GPU projects
 
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
