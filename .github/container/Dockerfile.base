@@ -30,18 +30,30 @@ export TZ=America/Los_Angeles
 apt-get update
 
 apt_packages=(
-  curl
   file
-  git
-  libxml2-16
   python-is-python3
   python3-dev
-  wget
   xxd
   zip
-  zlib1g-dev
 )
-apt-get install --no-install-recommends --no-install-suggests -y ${apt_packages[@]}
+
+if [[ "${BASE_IMAGE}" == *ubuntu24.04* ]]; then
+  apt_packages+=(
+    libxml2
+  )
+elif [[ "${BASE_IMAGE}" == *ubuntu26.04* ]]; then
+  apt_packages+=(
+    curl
+    git
+    libxml2-16
+    wget
+    zlib1g-dev
+  )
+else
+  echo "Unsupported base image: ${BASE_IMAGE}" >&2
+  exit 1
+fi
+apt-get install --no-install-recommends --no-install-suggests -y "${apt_packages[@]}"
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
