@@ -397,11 +397,19 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
         worker_parent_ids = profile_df.loc[
             profile_df["TID"].ne(main_thread), "ParentId"
         ].astype(np.int32)
+        # Look the parent ranges up by their full (ProfileName, RangeId) key. Indexing
+        # with ``(profile_name, ids)`` drops the ProfileName level in pandas>=3.1, but
+        # the lookups below need the full key.
+        parent_keys = pd.MultiIndex.from_arrays(
+            [
+                np.full(len(worker_parent_ids), profile_name, dtype=object),
+                worker_parent_ids.to_numpy(),
+            ],
+            names=profile_df.index.names,
+        ).unique()
         # These are the main-thread ranges that directly contain parallel workers
-        launcher_mask = profile_df.loc[(profile_name, worker_parent_ids), "TID"].eq(
-            main_thread
-        )
-        launcher_ids = launcher_mask[launcher_mask].index.unique()
+        launcher_mask = profile_df.loc[parent_keys, "TID"].eq(main_thread)
+        launcher_ids = launcher_mask[launcher_mask].index
         # Loop over the main-thread ranges that launched parallel work
         for launcher_row in profile_df.loc[launcher_ids, :].itertuples():
             assert launcher_row.TID == main_thread
