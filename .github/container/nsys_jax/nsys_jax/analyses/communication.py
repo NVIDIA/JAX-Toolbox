@@ -96,7 +96,7 @@ def print_bandwidth_table(collective_types, summary_data):
         for collective in collective_types
     }
     size_heading = "Size [B]"
-    size_width = max(len(size_heading), max(len(f"{s:,}") for s in summary_data.keys()))
+    size_width = max(len(size_heading), max(len(f"{s:,}") for s in summary_data))
 
     header_log = f"{'':<{size_width}} | Bus bandwidth [GB/s]"
     print(header_log)
