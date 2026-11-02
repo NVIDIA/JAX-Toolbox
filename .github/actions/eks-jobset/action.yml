@@ -147,6 +147,7 @@ runs:
     run : |
       cat ${{ inputs.JOBSET_TEMPLATE }} | \
         yq '.metadata.name = env(JOBSET_NAME)
+          | .spec.network.subdomain = env(JOBSET_NAME)
           | .spec.replicatedJobs[0].template.spec.parallelism = ${{ inputs.NUM_NODES }}
           | .spec.replicatedJobs[0].template.spec.completions = ${{ inputs.NUM_NODES }}
           | .spec.replicatedJobs[0].template.spec.template.spec.imagePullSecrets[0].name = "${{ steps.store-token.outputs.token-name }}"
