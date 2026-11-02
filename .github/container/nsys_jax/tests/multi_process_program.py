@@ -1,5 +1,6 @@
 import argparse
 import functools
+
 import jax
 
 parser = argparse.ArgumentParser()
