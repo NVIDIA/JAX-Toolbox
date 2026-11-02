@@ -1,7 +1,5 @@
-from nsys_jax import ensure_compiled_protos_are_importable
 import os
 import pathlib
-import psutil
 import re
 import shutil
 import subprocess
@@ -10,6 +8,17 @@ import time
 import typing
 import zipfile
 
+import psutil
+from nsys_jax import ensure_compiled_protos_are_importable
+
+
+def _reserve_output_file(out_dir):
+    """Create an empty, closed .zip file in out_dir for nsys-jax to overwrite."""
+    with tempfile.NamedTemporaryFile(
+        delete=False, dir=out_dir, suffix=".zip"
+    ) as output:
+        return output
+
 
 def nsys_jax_with_result(command, *, out_dir):
     """
@@ -17,7 +26,7 @@ def nsys_jax_with_result(command, *, out_dir):
     cleaned up on destruction. Explicitly returns the `subprocess.CompletedProcess`
     instance.
     """
-    output = tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
+    output = _reserve_output_file(out_dir)
     proc = subprocess.Popen(
         ["nsys-jax", "--force-overwrite", "--output", output.name] + command,
     )
@@ -97,10 +106,7 @@ def multi_process_nsys_jax(
     """
     Helper to run a multi-process test under nsys-jax and yield several .zip
     """
-    child_outputs = [
-        tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
-        for _ in range(num_processes)
-    ]
+    child_outputs = [_reserve_output_file(out_dir) for _ in range(num_processes)]
     children = [
         subprocess.Popen(
             ["nsys-jax", "--force-overwrite", "--output", output.name] + command(i)
