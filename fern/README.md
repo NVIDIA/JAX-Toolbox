@@ -17,7 +17,7 @@ docs/
 │   └── jax-on-nvidia-gpu-stack.mdx  # Page that mounts <EcosystemDiagram />
 ├── getting-started/      # Introduction, frameworks, build status, environment variables
 ├── reference/            # Container versions, staging containers, FAQ, clouds, resources
-├── frameworks/           # MaxText, AXLearn
+├── frameworks/           # MaxText
 ├── resiliency/           # Ray-based resilient JAX
 ├── inference/            # JAX-vLLM offloading bridge
 └── *.md                  # Profiling, GPU performance, PGLE, FP8, nsys-jax, triage tool
