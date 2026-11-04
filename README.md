@@ -21,6 +21,8 @@ JAX Toolbox
 
 - **Documentation**: Overview of JAX on GPUs, customizing JAX with NVIDIA CUDA Toolkit and going beyond what’s possible in native JAX, practical guides for profiling, optimizing, scaling and third-party tool integrations in JAX.
 
+- **[Tutorials](tutorials/)**: Hands-on notebooks for working with JAX on NVIDIA GPUs.
+
 - **Resources**: Talks, presentations and ecosystem references
 
 - **Container images**: Nightly builds, monthly NGC releases, and staging containers for JAX on GPU projects
@@ -63,6 +65,10 @@ JAX Toolbox
 
 
 Detailed release notes for NGC JAX containers are published in the [**NGC JAX release notes**](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/index.html).
+
+## Hands-on tutorials
+
+- [Nov 2026] [**Diagnose Compute- and Memory-Bound Custom JAX Kernels**](tutorials/jax-profiling/diagnose_compute_and_memory_bound_custom_jax_kernels.ipynb)
 
 ## Tech blogs
 - [Sep 2026] [**Collective GEMMs in Tensor Sequence Parallelism**](https://docs.nvidia.com/jax-toolbox/tech-blogs/collective-gemms)
