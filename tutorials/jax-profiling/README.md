@@ -2,7 +2,7 @@
 
 Tutorial notebooks for profiling JAX programs on NVIDIA GPUs.
 
-- [Diagnose Compute- and Memory-Bound Custom JAX Kernels](diagnose_compute_and_memory_bound_custom_jax_kernels.ipynb)
+- [Diagnose Compute- and Memory-Bound Custom JAX Kernels](https://github.com/NVIDIA/JAX-Toolbox/blob/main/tutorials/jax-profiling/diagnose_compute_and_memory_bound_custom_jax_kernels.ipynb)
 
 ## Prerequisites
 

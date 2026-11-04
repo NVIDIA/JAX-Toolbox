@@ -53,6 +53,20 @@ navigation:
       - page: nsys-jax
         path: nsys-jax.md
 
+  # ==================== Tutorials ====================
+  - section: Tutorials
+    slug: tutorials
+    contents:
+      - section: JAX Profiling
+        slug: jax-profiling
+        contents:
+          - page: Setup
+            path: ../tutorials/jax-profiling/README.md
+            slug: setup
+          - page: Diagnose Compute- and Memory-Bound Custom JAX Kernels
+            path: ../tutorials/jax-profiling/diagnose_compute_and_memory_bound_custom_jax_kernels.md
+            slug: diagnose-compute-and-memory-bound-custom-jax-kernels
+
   # ==================== Tech Blogs ====================
   - section: Tech Blogs
     contents:

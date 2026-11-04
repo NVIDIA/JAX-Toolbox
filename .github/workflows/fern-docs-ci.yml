@@ -4,10 +4,11 @@ name: Fern Docs Validate
 
 on:
   pull_request:
-    types: [synchronize]
+    types: [opened, synchronize, reopened]
     paths:
       - 'docs/**'
       - 'fern/**'
+      - 'tutorials/**'
       - 'package.json'
       - '.github/workflows/*fern*.yml'
 

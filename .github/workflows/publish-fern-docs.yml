@@ -9,6 +9,7 @@ on:
     paths:
       - 'docs/**'
       - 'fern/**'
+      - 'tutorials/**'
       - 'package.json'
   workflow_dispatch:
 

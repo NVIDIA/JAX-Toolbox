@@ -7,10 +7,12 @@
     "node": ">=18"
   },
   "scripts": {
-    "docs:dev":     "fern docs dev",
-    "docs:check":   "fern check",
-    "docs:preview": "fern generate --docs --preview",
-    "docs:publish": "fern generate --docs",
+    "docs:export":  "node fern/export-tutorials.mjs",
+    "docs:export:check": "node fern/export-tutorials.mjs --check",
+    "docs:dev":     "npm run docs:export && fern docs dev",
+    "docs:check":   "npm run docs:export:check && fern check",
+    "docs:preview": "npm run docs:export:check && fern generate --docs --preview",
+    "docs:publish": "npm run docs:export:check && fern generate --docs",
     "fern":         "fern"
   },
   "devDependencies": {

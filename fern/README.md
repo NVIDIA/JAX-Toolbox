@@ -51,9 +51,27 @@ All commands run from the **repository root**:
 | Command | What it does |
 |---|---|
 | `npm run docs:dev` | Live preview at http://localhost:3000 (hot-reload on file changes) |
-| `npm run docs:check` | Validate `docs.yml` / `index.yml` and check for broken links |
+| `npm run docs:export` | Regenerate the tutorial Markdown from its notebook |
+| `npm run docs:export:check` | Check that the committed tutorial export is current |
+| `npm run docs:check` | Check the tutorial export and validate Fern configuration |
 | `npm run docs:preview` | Build a shareable Fern preview deployment |
 | `npm run docs:publish` | Build and deploy (requires a configured Fern token) |
+
+## Publishing tutorials
+
+The profiling notebook in `tutorials/jax-profiling/` is the source for its
+adjacent Markdown page. After editing the notebook, run `npm run docs:export`
+and commit both files. The exporter preserves Markdown and code cells, omits
+saved outputs, and never executes the notebook. Screenshots stay in `images/`
+so the notebook and published page use the same assets.
+
+`npm run docs:check`, `docs:preview`, and `docs:publish` reject a missing or stale
+export. `docs:dev` regenerates it on startup; rerun `docs:export` after notebook
+edits during a live preview. Add tutorial pages to `docs/index.yml` and keep
+notebook downloads and helper-script links pointed at GitHub.
+
+Validate with `npm run docs:check` and `npx fern docs broken-links`, then inspect
+`npm run docs:preview` for screenshots, code blocks, and expandable answers.
 
 ## Editing the ecosystem stack diagram
 

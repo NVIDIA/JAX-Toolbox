@@ -11,6 +11,7 @@ env:
   PREVIEW_PATHS: |
       docs/**
       fern/**
+      tutorials/**
       package.json
       .github/workflows/*fern*.yml
       .github/workflows/*fern*.yaml
