@@ -15,7 +15,6 @@ usage() {
     echo ""
     echo "  OPTIONS                    DESCRIPTION"
     echo "  -a, --additional-args      Additional args to pass to maxtext.trainers.pre_train.train. Can be passed many times."
-    echo "  --mem-fraction             Specify the percentage of memory to preallocate for XLA. Example: 0.90, 0.85, 0.65". Default to 0.90, contradicting JAX default of 0.75.
     echo "  --model-name               Specify the model names to run [Preferred]. If you specify model name then you do not need to specify decoder-block. Currently supported ootb models:
                                        gemma-2b, gemma-7b, gpt3-175b, gpt3-22b, gpt3-52k, gpt3-6b, llama2-13b, llama2-70b, llama2-7b, llama3-70b, llama3-8b, mistral-7b, mixtral-8x7b"
     echo "  --decoder-block            Specify decoder block to run. Example: llama2, default. Use this option only to define a custom model. This is not preferred, only used in CI"
@@ -50,7 +49,7 @@ usage() {
     exit $1
 }
 
-args=$(getopt -o a:b:s:o:n:h --long additional-args:,mem-fraction:,model-name:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,quantization:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,tensor-sequence-parallel:,pipeline-parallel:,nodes: -- "$@")
+args=$(getopt -o a:b:s:o:n:h --long additional-args:,model-name:,decoder-block:,attn-type:,remat-policy:,batch-per-gpu:,dtype:,quantization:,steps:,help,multiprocess,output:,data-parallel:,fsdp:,tensor-parallel:,tensor-sequence-parallel:,pipeline-parallel:,nodes: -- "$@")
 if [[ $? -ne 0 ]]; then
     exit $1
 fi
@@ -58,7 +57,6 @@ fi
 # Default arguments
 HARDWARE='gpu'
 OUTPUT=$(mktemp -d)
-MEM_FRACTION=0.90
 
 MODEL="gpt3-52k"
 DECODER_BLOCK=""
@@ -82,10 +80,6 @@ while [ : ]; do
     case "$1" in
     -a | --additional-args)
         ADDITIONAL_ARGS="$ADDITIONAL_ARGS $2"
-        shift 2
-        ;;
-    --mem-fraction)
-        MEM_FRACTION="$2"
         shift 2
         ;;
     --model-name)
@@ -232,7 +226,6 @@ else
 fi
 
 print_var ADDITIONAL_ARGS
-print_var MEM_FRACTION
 print_var MODEL
 print_var DECODER_BLOCK
 print_var ATTN_TYPE
@@ -260,7 +253,7 @@ pushd ${MAXTEXT_DIR}
 ## Launch
 
 export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
-export XLA_PYTHON_CLIENT_MEM_FRACTION=${MEM_FRACTION}
+unset XLA_PYTHON_CLIENT_MEM_FRACTION
 
 local_arch=$(local_cuda_arch)
 if [[ "${local_arch}" == "9.0" ]]; then

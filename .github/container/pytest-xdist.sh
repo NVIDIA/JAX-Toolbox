@@ -34,7 +34,7 @@ for worker in $(seq 0 $((WORKERS_PER_GPU-1))); do
   done
 done
 export PYTEST_ADDOPTS
-export XLA_PYTHON_CLIENT_MEM_FRACTION=$(printf '0.%02d' $((75/WORKERS_PER_GPU)))
+unset XLA_PYTHON_CLIENT_MEM_FRACTION
 mkfifo ${FIFO}
 # Handle errors explicitly below here
 set +e
