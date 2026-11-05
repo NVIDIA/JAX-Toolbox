@@ -33,6 +33,13 @@ the given containers are closely related to those from JAX-Toolbox
 * JAX, XLA, Flax[, MaxText] sources at `/opt/{jax,xla,flax,maxtext}[-source]`
 * `build-jax.sh` script from JAX-Toolbox available in the container
 
+If a likely culprit commit is already known, pass it with `--commit`. The tool tests
+that commit and, if it reproduces the failure, its first parent. A candidate that fails
+while its parent passes is reported immediately. Otherwise, a failing candidate becomes
+the failing endpoint of a backward bisection, while a passing candidate becomes the
+passing endpoint of a forward bisection. A build or test error falls back to the
+original range.
+
 ## Installation
 
 The triage tool can be installed using `pip`:
@@ -162,6 +169,11 @@ To use the tool, there are two compulsory inputs:
       * **Version Search between Containers**: `--passing-container` and `--failing-container`: a pair of URLs to containers to use in the version-level search; if these are passed then no container-level search is performed.
       * **Local Commit Search**: Use `--container-runtime=local` when you are already inside a JAX container. This mode skips all container orchestration and performs a version-level search directly in the local container. It requires you to specify the version range with `--passing-versions` and `--failing-versions`.
 
+Version-level search can be combined with `--commit PACKAGE:REVISION` to hint a probable culprit commit.
+`--commit` may be passed multiple times to pass multiple hints.
+If multiple packages are listed in the same instance (`--commit P1:R1,P2:R2`) then the 2nd and subsequent packages and revisions are interpreted as reference values; i.e. the hint is that `(R1, R2)` fails and `(parent of R1, R2)` passes.
+The ordinary scope arguments are still required because they provide the build environment and the fallback search range.
+
 The test command will be executed directly in the container, not inside a shell, so be
 sure not to add excessive quotation marks (*i.e.* run
 `jax-toolbox-triage --container=jax test-jax.sh foo` not
@@ -244,6 +256,9 @@ paths and `http`/`https`/`grpc` URLs.
 If `--skip-precondition-checks` is passed, a sanity check that the failure can be
 reproduced after rebuilding the JAX/XLA commits from the first-known-bad container
 inside that container will be skipped.
+
+The explicit candidate check requested by `--commit`, and its parent check when the
+candidate fails, are still run when `--skip-precondition-checks` is passed.
 
 ## Example
 

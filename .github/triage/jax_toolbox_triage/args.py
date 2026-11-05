@@ -43,7 +43,7 @@ def parse_override_remotes(s: str) -> dict[str, str]:
         s: (str) e.g. https://<token>@host/repo.git
 
     Returns:
-        ret: (typing.Dict[str,str]) Dictionary with software as key and git-url as value.
+        ret: (dict[str, str]) Dictionary with software as key and git-url as value.
     """
     ret: dict[str, str] = {}
     for part in s.split(","):
@@ -238,6 +238,22 @@ def parse_args(args=None) -> argparse.Namespace:
         "--passing-commits",
         help="Deprecated alias for --passing-versions",
         type=parse_version_argument,
+    )
+    version_search_args.add_argument(
+        "--commit",
+        metavar="PACKAGE:REVISION[,PACKAGE:REFERENCE...]",
+        action="append",
+        type=parse_version_argument,
+        help="""
+            Version vector suspected of introducing the regression. The first package
+            is the suspected culprit and any remaining packages are reference versions;
+            for example, jax:abc123,xla:def456 tests JAX abc123 and its first
+            parent with XLA def456 fixed. References not supplied explicitly are chosen
+            from the bisection histories by timestamp. If an unconfirmed candidate
+            vector lies within those histories, its observed result narrows the normal
+            version-level bisection across all packages. May be passed multiple times
+            to provide multiple candidate vectors.
+        """,
     )
     version_search_args.add_argument(
         "--cherry-pick",
