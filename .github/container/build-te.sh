@@ -11,7 +11,7 @@ usage() {
     echo "    OPTIONS                        DESCRIPTION"
     echo "    --clean                        Clear build caches under --src-path-te."
     echo "    -h, --help                     Print usage."
-    echo "    --ccache                       Use ccache to build TransformerEngine. It will be installed, but the caller should configure it."
+    echo "    --ccache                       Use a compiler cache to build TransformerEngine."
     echo "    --no-install                   Only build a wheel; do not install."
     echo "    --src-path-te                  Path to TransformerEngine source code."
     echo "    --src-path-xla                 Path to XLA source code."
@@ -148,14 +148,53 @@ subprocess.run(
     + [f"nvidia-cudnn-frontend=={os.environ['CUDNN_FRONTEND_VERSION']}"]
 )
 EOF
+# Transformer Engine adds NVTE_CCACHE_BIN as both its C++ and CUDA CMake
+# compiler launcher when NVTE_USE_CCACHE is set. Do not also wrap CXX: that
+# would produce a recursive "ccache ccache g++" invocation.
 if [[ "${CCACHE}" == "1" ]]; then
-    # Install ccache if not present (needs >= 4.1 for Redis remote storage support)
-    if ! command -v ccache &> /dev/null; then
-        apt-get update && apt-get install -y --no-install-recommends ccache
+    NVTE_CCACHE_BIN="${NVTE_CCACHE_BIN:-ccache}"
+    CACHE_PROGRAM="$(basename -- "${NVTE_CCACHE_BIN}")"
+
+    if ! command -v "${NVTE_CCACHE_BIN}" &> /dev/null; then
+        # Keep direct callers backwards compatible while the Docker build
+        # installs its selected cache explicitly.
+        CACHE_INSTALLER="${SCRIPT_DIR}/install-compiler-cache.sh"
+        if [[ ! -x "${CACHE_INSTALLER}" ]]; then
+            CACHE_INSTALLER="$(command -v install-compiler-cache.sh || true)"
+        fi
+        if [[ -z "${CACHE_INSTALLER}" || ! -x "${CACHE_INSTALLER}" ]]; then
+            echo "${NVTE_CCACHE_BIN} is not installed and install-compiler-cache.sh is unavailable"
+            exit 1
+        fi
+        "${CACHE_INSTALLER}" "${NVTE_CCACHE_BIN}"
     fi
-    export CXX="ccache g++"
+    if ! command -v "${NVTE_CCACHE_BIN}" &> /dev/null; then
+        echo "Compiler cache installation did not provide ${NVTE_CCACHE_BIN}"
+        exit 1
+    fi
+
     export NVTE_USE_CCACHE=1
-    ccache --zero-stats
+    export NVTE_CCACHE_BIN
+    case "${CACHE_PROGRAM}" in
+        sccache)
+            # Keep the daemon alive for long CUDA builds and retain an error log
+            # so backend failures are visible alongside the cache statistics.
+            export SCCACHE_IDLE_TIMEOUT="${SCCACHE_IDLE_TIMEOUT:-0}"
+            export SCCACHE_ERROR_LOG="${SCCACHE_ERROR_LOG:-/tmp/sccache-server.log}"
+            rm -f -- "${SCCACHE_ERROR_LOG}"
+            "${NVTE_CCACHE_BIN}" --start-server
+            "${NVTE_CCACHE_BIN}" --zero-stats
+            ;;
+        ccache)
+            export CCACHE_DIR="${CCACHE_DIR:-/root/.cache/ccache}"
+            "${NVTE_CCACHE_BIN}" --zero-stats
+            ;;
+        *)
+            echo "Unsupported compiler cache: ${NVTE_CCACHE_BIN}"
+            exit 1
+            ;;
+    esac
+    echo "Transformer Engine compiler cache: ${CACHE_PROGRAM}"
 fi
 
 # The wheel filename includes the TE commit; if this has changed since the last
@@ -166,11 +205,25 @@ git -C "${SRC_PATH_TE}" config --local core.abbrev 9
 
 rm -fv dist/*.whl
 python setup.py bdist_wheel
-ls dist/
 popd
 
+CACHE_STATUS=0
 if [[ "${CCACHE}" == "1" ]]; then
-    ccache --show-stats --verbose
+    case "${CACHE_PROGRAM}" in
+        sccache)
+            "${NVTE_CCACHE_BIN}" --show-stats || CACHE_STATUS=$?
+            if [[ -s "${SCCACHE_ERROR_LOG}" ]]; then
+                echo "WARNING: sccache reported backend errors:"
+                tail -n 200 "${SCCACHE_ERROR_LOG}"
+            fi
+            # Stopping the daemon drains any in-flight cache uploads.
+            "${NVTE_CCACHE_BIN}" --stop-server || true
+            rm -f -- "${SCCACHE_ERROR_LOG}"
+            ;;
+        ccache)
+            "${NVTE_CCACHE_BIN}" --show-stats --verbose || CACHE_STATUS=$?
+            ;;
+    esac
 fi
 
 ## Install the built packages
