@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Diagnose ONE kernel with Nsight Compute.
 #
-# The target must call cudaProfilerStart()/Stop() around a warmed-up region.
+# The target must call cudaProfilerStart()/Stop() or cuProfilerStart()/Stop() around a warmed-up region.
 # Run this on a machine with GPU performance-counter access.
 # If access is unavailable, ncu reports ERR_NVGPUCTRPERM.
 #
@@ -24,7 +24,7 @@ CAPTURE_MARKER="$(mktemp)"
 trap 'rm -f "${CAPTURE_MARKER}"' EXIT
 
 # Start disabled so compilation/autotuning is excluded.
-# Warmup finishes before cudaProfilerStart(); capture 2 matching launches.
+# Warmup finishes before the profiler-start call; capture 2 matching launches.
 # -k "regex:$KREGEX"               : restrict profiling to matching kernels.
 ncu --target-processes all \
     --force-overwrite \
