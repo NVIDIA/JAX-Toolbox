@@ -624,7 +624,7 @@ jobs:
             envs: |-
               OFI_NCCL_PROTOCOL=SENDRECV
             maxtext-args: |-
-              jax_distributed_initialization_timeout=60
+              jax_distributed_initialization_timeout=300
     runs-on: eks
     steps:
       - uses: actions/checkout@v4
