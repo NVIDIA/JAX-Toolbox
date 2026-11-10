@@ -88,3 +88,13 @@ alphafold:
   tracking_ref: main
   latest_verified_commit: 3dfc5a91beee404474d614df1031fbdefaef3277
   mode: git-clone
+tokamax:
+  url: https://github.com/openxla/tokamax.git
+  tracking_ref: main
+  latest_verified_commit: 28e81933f3d5c709b2e434ce2781fe47250b91b4
+  mode: pip-vcs
+jax-triton:
+  url: https://github.com/jax-ml/jax-triton.git
+  tracking_ref: main
+  latest_verified_commit: 127f80a5e4513ccba6e1f425ab759e2d4fb21a92
+  mode: pip-vcs

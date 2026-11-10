@@ -10,6 +10,8 @@ ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ###############################################################################
 
 FROM ${BASE_IMAGE}
+# override enroot multline label issue
+LABEL org.opencontainers.image.description="Ubuntu 26.04 JAX"
 ARG BASE_IMAGE
 ARG GIT_USER_EMAIL
 ARG GIT_USER_NAME
@@ -29,13 +31,28 @@ apt-get update
 
 apt_packages=(
   file
-  libxml2
   python-is-python3
   python3-dev
   xxd
   zip
 )
-apt-get install --no-install-recommends --no-install-suggests -y ${apt_packages[@]}
+if [[ "${BASE_IMAGE}" == *ubuntu24.04* ]]; then
+  apt_packages+=(
+    libxml2
+  )
+elif [[ "${BASE_IMAGE}" == *ubuntu26.04* ]]; then
+  apt_packages+=(
+    curl
+    git
+    libxml2-16
+    wget
+    zlib1g-dev
+  )
+else
+  echo "Unsupported base image: ${BASE_IMAGE}" >&2
+  exit 1
+fi
+apt-get install --no-install-recommends --no-install-suggests -y "${apt_packages[@]}"
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
@@ -133,7 +150,3 @@ ENV MANIFEST_FILE="/opt/manifest.d/manifest.yaml"
 ADD manifest.yaml create-distribution.sh bump.sh /opt/manifest.d/
 
 COPY patches/ /opt/manifest.d/patches/
-
-# Temporary workaround for TransformerEngine, which added a >=1.25.0 requirement
-# when no public cuda-dl-base container had that CUDNN_FRONTEND_VERSION.
-ENV CUDNN_FRONTEND_VERSION=1.25.0
