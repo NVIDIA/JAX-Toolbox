@@ -204,6 +204,9 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
+      XLA_TAG: ${{ steps.source-urlrefs.outputs.XLA_TAG }}
+      XLA_URLREF: ${{ steps.source-urlrefs.outputs.XLA_URLREF }}
+      XLA_TAG_MESSAGE: ${{ steps.source-urlrefs.outputs.XLA_TAG_MESSAGE }}
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v6
@@ -279,6 +282,7 @@ jobs:
             echo "$xla_ref" | jq
 
             XLA_URLREF=$(jq -er '.urlref' <<< "$xla_ref")
+            XLA_TAG=$(jq -er '.tag' <<< "$xla_ref")
             JAX_COMMIT=$(jq -er '.jax_commit' <<< "$xla_ref")
             JAX_URLREF="https://github.com/jax-ml/jax.git#${JAX_COMMIT}"
             urlrefs=$(
@@ -291,6 +295,14 @@ jobs:
 
             echo "Using ${XLA_URLREF} for the scale-training XLA build"
             echo "Using ${JAX_URLREF} for the scale-training JAX build"
+
+            {
+              echo "XLA_TAG=${XLA_TAG}"
+              echo "XLA_URLREF=${XLA_URLREF}"
+              echo 'XLA_TAG_MESSAGE<<EOF_XLA_TAG_MESSAGE'
+              jq -r '.message' <<< "$xla_ref"
+              echo 'EOF_XLA_TAG_MESSAGE'
+            } >> $GITHUB_OUTPUT
           fi
 
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
@@ -537,6 +549,30 @@ jobs:
       TARGET_TAGS: |
         type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }},priority=${{ matrix.config.priority }}
         type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
+
+  # The ci-announcement artifact is posted to Slack outside this repository,
+  # where the channel and the mention are set.
+  notify-staging:
+    needs: [metadata, bump-manifest, publish-containers]
+    if: ${{ !cancelled() && needs.metadata.outputs.IS_STAGING == 'true' && needs.publish-containers.result == 'success' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compose announcement
+        env:
+          XLA_TAG: ${{ needs.bump-manifest.outputs.XLA_TAG }}
+          XLA_TAG_MESSAGE: ${{ needs.bump-manifest.outputs.XLA_TAG_MESSAGE }}
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+        run: python .github/workflows/scripts/compose-announcement.py
+
+      - name: Upload announcement
+        uses: actions/upload-artifact@v6
+        with:
+          name: ci-announcement
+          path: announcement.json
+          if-no-files-found: error
 
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
