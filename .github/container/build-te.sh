@@ -165,14 +165,16 @@ frontend = [
 if not frontend or any(r.url for r in frontend):
     raise RuntimeError("Expected an index-based cuDNN frontend build requirement")
 
+# Use TE's requirement, optionally constrained to an explicit version.
 install = [str(r) for r in requirements]
+requested_version = os.environ.get("CUDNN_FRONTEND_VERSION", "").strip()
+if requested_version:
+    install.append(f"nvidia-cudnn-frontend=={requested_version}")
 
-# Preserve the base image's selection when it satisfies TE's requirements.
-base_version = os.environ.get("CUDNN_FRONTEND_VERSION")
-if base_version and all(base_version in r.specifier for r in frontend):
-    install.append(f"nvidia-cudnn-frontend=={base_version}")
-
-subprocess.run([sys.executable, "-m", "pip", "install", *install], check=True)
+subprocess.run(
+    [sys.executable, "-m", "pip", "install", *install],
+    check=True,
+)
 
 # Keep the exact frontend selection alongside the TE wheel.
 Path("dist").mkdir(exist_ok=True)
