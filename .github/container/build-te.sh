@@ -138,14 +138,46 @@ pushd ${SRC_PATH_TE}
 # JAX, or the wheel-based installation of CUDA. Note that when we build TE as
 # part of building the JAX containers, JAX and XLA are not yet installed.
 python - << EOF
-import os, subprocess, sys, tomllib
+import os
+import subprocess
+import sys
+import tomllib
+from importlib.metadata import version
+from pathlib import Path
+
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+
 with open("pyproject.toml", "rb") as ifile:
     data = tomllib.load(ifile)
-subprocess.run(
-    [sys.executable, "-m", "pip", "install"]
-    + [r for r in data["build-system"]["requires"]
-       if r.startswith("pybind11") or r.startswith("cmake") or r.startswith("ninja")]
-    + [f"nvidia-cudnn-frontend=={os.environ['CUDNN_FRONTEND_VERSION']}"]
+
+allowed = {"pybind11", "cmake", "ninja", "nvidia-cudnn-frontend"}
+requirements = [Requirement(r) for r in data["build-system"]["requires"]]
+requirements = [
+    r for r in requirements
+    if canonicalize_name(r.name) in allowed
+    and (r.marker is None or r.marker.evaluate())
+]
+frontend = [
+    r for r in requirements
+    if canonicalize_name(r.name) == "nvidia-cudnn-frontend"
+]
+if not frontend or any(r.url for r in frontend):
+    raise RuntimeError("Expected an index-based cuDNN frontend build requirement")
+
+install = [str(r) for r in requirements]
+
+# Preserve the base image's selection when it satisfies TE's requirements.
+base_version = os.environ.get("CUDNN_FRONTEND_VERSION")
+if base_version and all(base_version in r.specifier for r in frontend):
+    install.append(f"nvidia-cudnn-frontend=={base_version}")
+
+subprocess.run([sys.executable, "-m", "pip", "install", *install], check=True)
+
+# Keep the exact frontend selection alongside the TE wheel.
+Path("dist").mkdir(exist_ok=True)
+Path("dist/cudnn-frontend-requirement.txt").write_text(
+    f"nvidia-cudnn-frontend=={version('nvidia-cudnn-frontend')}\n"
 )
 EOF
 if [[ "${CCACHE}" == "1" ]]; then
@@ -176,7 +208,8 @@ fi
 ## Install the built packages
 if [[ "${INSTALL}" == "1" ]]; then
     pip uninstall -y transformer_engine
-    pip install ${SRC_PATH_TE}/dist/*.whl
+    pip install -r "${SRC_PATH_TE}/dist/cudnn-frontend-requirement.txt" \
+        ${SRC_PATH_TE}/dist/*.whl
     pip list | grep ^transformer_engine
 fi
 
