@@ -10,6 +10,8 @@ ARG NSIGHT_SYSTEMS_VERSION_OVERRIDE
 ###############################################################################
 
 FROM ${BASE_IMAGE}
+ARG CUDNN_FRONTEND_VERSION=""
+ENV CUDNN_FRONTEND_VERSION=${CUDNN_FRONTEND_VERSION}
 # override enroot multline label issue
 LABEL org.opencontainers.image.description="Ubuntu 26.04 JAX"
 ARG BASE_IMAGE
