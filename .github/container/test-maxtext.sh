@@ -15,7 +15,7 @@ usage() {
     echo ""
     echo "  OPTIONS                    DESCRIPTION"
     echo "  -a, --additional-args      Additional args to pass to maxtext.trainers.pre_train.train. Can be passed many times."
-    echo "  --mem-fraction             Specify the percentage of memory to preallocate for XLA. Example: 0.90, 0.85, 0.65". Default to 0.90, contradicting JAX default of 0.75.
+    echo "  --mem-fraction             Set a fixed GPU memory fraction. Omit to use the default JAX memory policy."
     echo "  --model-name               Specify the model names to run [Preferred]. If you specify model name then you do not need to specify decoder-block. Currently supported ootb models:
                                        gemma-2b, gemma-7b, gpt3-175b, gpt3-22b, gpt3-52k, gpt3-6b, llama2-13b, llama2-70b, llama2-7b, llama3-70b, llama3-8b, mistral-7b, mixtral-8x7b"
     echo "  --decoder-block            Specify decoder block to run. Example: llama2, default. Use this option only to define a custom model. This is not preferred, only used in CI"
@@ -58,7 +58,7 @@ fi
 # Default arguments
 HARDWARE='gpu'
 OUTPUT=$(mktemp -d)
-MEM_FRACTION=0.90
+MEM_FRACTION=""
 
 MODEL="gpt3-52k"
 DECODER_BLOCK=""
@@ -260,7 +260,11 @@ pushd ${MAXTEXT_DIR}
 ## Launch
 
 export NVTE_FUSED_ATTN=${ENABLE_FUSED_ATTN}
-export XLA_PYTHON_CLIENT_MEM_FRACTION=${MEM_FRACTION}
+if [[ -n "$MEM_FRACTION" ]]; then
+    export XLA_PYTHON_CLIENT_MEM_FRACTION="$MEM_FRACTION"
+else
+    unset XLA_PYTHON_CLIENT_MEM_FRACTION
+fi
 
 local_arch=$(local_cuda_arch)
 if [[ "${local_arch}" == "9.0" ]]; then
