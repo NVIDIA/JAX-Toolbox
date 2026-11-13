@@ -12,9 +12,10 @@ import warnings
 # We know how to recompile JAX/XLA, so it's OK that they include C++ code
 # Flax and MaxText are pure Python, so it's OK we don't have a way of compiling them,
 # but they are not always installed in containers we want to triage.
+# TimesFM is also Python, but must be reinstalled after checking out a revision.
 # Note this is not a `set` for the sake of run-to-run determinism.
 compulsory_software = ["xla", "jax"]
-optional_software = ["flax", "maxtext", "transformer-engine"]
+optional_software = ["flax", "maxtext", "transformer-engine", "timesfm"]
 
 
 def parse_cherry_picks(s: str) -> dict[str, list[str]]:
@@ -253,6 +254,9 @@ def parse_args(args=None) -> argparse.Namespace:
             vector lies within those histories, its observed result narrows the normal
             version-level bisection across all packages. May be passed multiple times
             to provide multiple candidate vectors.
+            TimesFM candidates use timesfm:REVISION and require a Git checkout at
+            /opt/timesfm or /opt/timesfm-source. TimesFM is reinstalled without
+            changing its dependencies; tracked container patches are preserved.
         """,
     )
     version_search_args.add_argument(

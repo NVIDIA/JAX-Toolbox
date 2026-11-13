@@ -17,7 +17,7 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Any
 
-from .bisect import get_commit_history
+from .bisect import ensure_full_history, get_commit_history
 from .container import Container
 from .container_factory import make_container
 from .docker import DockerContainer
@@ -627,6 +627,13 @@ class TriageTool:
                 git_commands.append(
                     f"cd ${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs[package]}"
                 )
+                if package == "timesfm":
+                    # Core Models images carry a tracked BF16 patch. Keep it fixed
+                    # across candidate/parent tests rather than dropping it at checkout.
+                    git_commands.append("triage_timesfm_patched=0")
+                    git_commands.append(
+                        "if ! git diff --quiet HEAD; then triage_timesfm_patched=1; fi"
+                    )
                 git_commands.append("git stash")
                 remote = self.args.override_remotes.get(package, "origin")
                 if push_intermediate_containers:
@@ -661,6 +668,10 @@ class TriageTool:
                 for cherry_pick_range in self.args.cherry_pick.get(package, []):
                     git_commands.append(
                         f"(git cherry-pick {cherry_pick_range} || git cherry-pick --abort)"
+                    )
+                if package == "timesfm":
+                    git_commands.append(
+                        'if [ "$triage_timesfm_patched" = 1 ]; then git stash pop; fi'
                     )
             else:
                 if package == _WORKLOAD_VERSION_KEY:
@@ -723,6 +734,14 @@ class TriageTool:
                     )
                 else:
                     build_cmds.append("build-te.sh")
+            if "timesfm" in self.dynamic_packages and "timesfm" in self.package_dirs:
+                # TimesFM is installed non-editably in Core Models images. A checkout
+                # alone would keep testing the old package in site-packages.
+                build_cmds.append(
+                    "PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install "
+                    "--no-deps --force-reinstall "
+                    f'"${{JAX_TOOLBOX_TRIAGE_PREFIX}}{self.package_dirs["timesfm"]}"'
+                )
             summary = {}
             if push_intermediate_containers:
                 # Build a new layer on top of `bisection_url` that includes running `build_cmds` as a new layer.
@@ -1053,6 +1072,11 @@ class TriageTool:
                     continue
 
                 directory = self.package_dirs[hint_package]
+                ensure_full_history(
+                    worker,
+                    directory,
+                    self.args.override_remotes.get(hint_package, "origin"),
+                )
                 resolve_command = [
                     "git",
                     "rev-list",
