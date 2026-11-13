@@ -79,6 +79,11 @@ if [[ -n "${GIT_REF}" ]]; then
 fi
 COMMIT_SHA=$(git rev-parse HEAD)
 git submodule update --init --recursive
+
+## purge credentials before updating the remote or manifest
+if [[ "${GIT_REPO}" =~ ^(https?://)[^/]*@(.*)$ ]]; then
+    GIT_REPO="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
 if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
   git remote remove origin
   if grep -q -r gitlab-ci-token .git; then
@@ -87,6 +92,8 @@ if [[ "${GIT_REPO}" == *"gitlab"* ]]; then
   if [[ "${GIT_REF}" != "main" ]]; then
     git branch -D main
   fi
+else
+  git remote set-url origin "${GIT_REPO}"
 fi
 popd
 
@@ -95,9 +102,3 @@ mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")
 yq eval --inplace ". += {\"${PACKAGE}\": {\"url\": \"${GIT_REPO}\", \"tracking_ref\": \"${GIT_REF}\", \"latest_verified_commit\": \"${COMMIT_SHA}\", \"mode\": \"git-clone\"}}" ${MANIFEST}
-
-## purge remote url
-if [[ "${GIT_REPO}" =~ ^(https?://)[^/]*@(.*)$ ]]; then
-    GIT_REPO="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
-fi
-git remote set-url origin "${GIT_REPO}"
