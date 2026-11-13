@@ -95,3 +95,9 @@ mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")
 yq eval --inplace ". += {\"${PACKAGE}\": {\"url\": \"${GIT_REPO}\", \"tracking_ref\": \"${GIT_REF}\", \"latest_verified_commit\": \"${COMMIT_SHA}\", \"mode\": \"git-clone\"}}" ${MANIFEST}
+
+## purge remote url
+if [[ "${GIT_REPO}" =~ ^(https?://)[^/]*@(.*)$ ]]; then
+    GIT_REPO="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
+git remote set-url origin "${GIT_REPO}"
