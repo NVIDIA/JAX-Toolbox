@@ -9,6 +9,7 @@ Tutorial notebooks for profiling JAX programs on NVIDIA GPUs.
 - A Linux GPU host with an NVIDIA Ampere or newer GPU (compute capability 8.0+) and a driver compatible with the CUDA version you use.
 - CUDA 12.9+, JAX 0.8.1+, and CUTLASS DSL 4.4+ for the [CuTe DSL integration](https://docs.jax.dev/en/latest/401/cute-dsl.html).
 - NVIDIA Nsight Systems (`nsys`), Nsight Compute 2026.2.1+ (`ncu`), and Nsight Python 1.0+. The `nsys` and `ncu` executables must be on `PATH`.
+- Nsight Python reads reports through the `ncu-report` Python package, which must not be older than `ncu`. If Nsight Python reports that `ncu-report` is older than Nsight Compute, use an `ncu` whose major.minor version matches the installed `ncu-report`.
 - Permission to access GPU performance counters. If profiling reports `ERR_NVGPUCTRPERM`, see [NVIDIA's permissions guide](https://developer.nvidia.com/ERR_NVGPUCTRPERM).
 
 ## Run in a container
