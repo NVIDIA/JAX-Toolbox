@@ -246,7 +246,7 @@ export SC_JAX_RESULTS_TOPIC="inference/results/sc_forwarded"
 export SC_SYNC_TOPIC="sync/weights_ready"
 export SC_VLLM_EVENT_TOPIC="sc/vllm/events"
 
-export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+unset XLA_PYTHON_CLIENT_MEM_FRACTION
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
                   --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
