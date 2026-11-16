@@ -1,21 +1,22 @@
-from nsys_jax import (
-    ensure_compiled_protos_are_importable,
-    load_profiler_data,
-    xla_module_metadata,
-)
 import os
 import pathlib
-import portpicker
-import pytest  # type: ignore
 import re
 import subprocess
 import sys
 import tempfile
 
+import portpicker
+import pytest  # type: ignore
+from nsys_jax import (
+    ensure_compiled_protos_are_importable,
+    load_profiler_data,
+    xla_module_metadata,
+)
+
 helper_dir = os.path.join(os.path.dirname(__file__), "nsys_jax_test_helpers")
 if helper_dir not in sys.path:
     sys.path.insert(0, helper_dir)
-from nsys_jax_test_helpers import extract, multi_process_nsys_jax  # noqa: E402
+from nsys_jax_test_helpers import extract, multi_process_nsys_jax  # noqa: E402, RUF100
 
 
 @pytest.fixture(scope="module")
@@ -47,13 +48,13 @@ def individual_and_combined_results(individual_results):
     Fixture that yields the extracted .zip files from individual subprocesses and the
     merged result from nsys-jax-combine.
     """
-    combined_output = tempfile.NamedTemporaryFile(suffix=".zip")
-    subprocess.run(
-        ["nsys-jax-combine", "--force-overwrite", "--output", combined_output.name]
-        + [output.name for output in individual_results],
-        check=True,
-    )
-    combined_dir = extract(combined_output.name)
+    with tempfile.NamedTemporaryFile(suffix=".zip") as combined_output:
+        subprocess.run(
+            ["nsys-jax-combine", "--force-overwrite", "--output", combined_output.name]
+            + [output.name for output in individual_results],
+            check=True,
+        )
+        combined_dir = extract(combined_output.name)
     # Make sure the protobuf bindings can be imported, the generated .py will go into
     # a temporary directory that is not currently cleaned up. The bindings cannot be
     # un-imported from the test process, so there is a tacit assumption that in a given
@@ -74,7 +75,9 @@ def get_module_id(dump_dir, module_name: str) -> int:
     for file in path.iterdir():
         if m := pattern.match(file.name):
             return int(m.group(1))
-    raise Exception(f"Did not find {module_name} in {path}: {list(path.iterdir())}")
+    raise FileNotFoundError(
+        f"Did not find {module_name} in {path}: {list(path.iterdir())}"
+    )
 
 
 def module_exists(dump_dir, module_name, module_id):

@@ -1,10 +1,12 @@
 import argparse
-import google.protobuf
 import io
 import os
 import platform
-import requests
+import re
 import zipfile
+
+import google.protobuf
+import requests
 
 
 def main():
@@ -25,7 +27,11 @@ def main():
     # install a protoc with the same version as google.protobuf. For newer versions, given
     # google.protobuf version X.Y.Z install protoc version Y.Z as described in
     # https://protobuf.dev/support/version-support
-    runtime_version = tuple(map(int, google.protobuf.__version__.split(".")))
+    # Only the numeric release segment matters; pre-release suffixes such as rc1 are
+    # ignored.
+    release = re.match(r"\d+(?:\.\d+)*", google.protobuf.__version__)
+    assert release is not None, google.protobuf.__version__
+    runtime_version = tuple(int(part) for part in release.group().split("."))
     if runtime_version < (3, 21):
         # old versioning scheme, try and install a matching protoc version
         protoc_version = runtime_version
@@ -53,14 +59,13 @@ def main():
         if r.status_code == 404:
             # assume this means the architecture is not available
             continue
-    else:
-        r.raise_for_status()
+    r.raise_for_status()
 
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
         for name in z.namelist():
             if ".." in name:
                 continue
-            if name.startswith("bin/") or name.startswith("include/"):
+            if name.startswith(("bin/", "include/")):
                 z.extract(name, path=args.prefix)
 
     # Make sure the protoc binary is executable

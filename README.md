@@ -21,6 +21,8 @@ JAX Toolbox
 
 - **Documentation**: Overview of JAX on GPUs, customizing JAX with NVIDIA CUDA Toolkit and going beyond what’s possible in native JAX, practical guides for profiling, optimizing, scaling and third-party tool integrations in JAX.
 
+- **[Tutorials](tutorials/)**: Hands-on notebooks for working with JAX on NVIDIA GPUs.
+
 - **Resources**: Talks, presentations and ecosystem references
 
 - **Container images**: Nightly builds, monthly NGC releases, and staging containers for JAX on GPU projects
@@ -28,19 +30,25 @@ JAX Toolbox
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
 ## Latest news
+- **[NGC 26.10](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/-/tags)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.10-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.10-maxtext-py3) images released
+  - `CUDA 13.4.3`, JAX [`v0.11.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.2)
+  - Updated GPU libraries: Includes [Transformer Engine 2.20.2](https://github.com/NVIDIA/TransformerEngine/releases/tag/v2.20.2), cuDNN 9.27.0.42, and NCCL 2.32.3.
+  - Expanded MoE support: Transformer Engine adds Hopper BF16 grouped GEMM, `sqrtsoftplus` routing, and single-process multi-device expert parallelism, with fixes for routed-gradient races and fused-attention sharding.
+  - Improved distributed execution and GPU operations: JAX adds Open MPI 5 cluster detection and optional mutual TLS for distributed initialization, and improves multidimensional inverse real FFT and cumulative-sum performance on GPUs.
+  - MaxText compatibility: Restored the JetStream dependency for inference imports, pinned TensorFlow dependencies to avoid a broken Linux wheel, and fixed CUTLASS DSL imports shadowing PyTorch.
 - **[NGC 26.09](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-09.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.09-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.09-maxtext-py3) images released
   - [`CUDA 13.4.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-09.html), JAX [`v0.11.1`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.1)
   - Updated GPU and software support: DLFW 26.09 introduces initial NVIDIA Rubin support, upgrades JAX to v0.11.1, and adds CUDA 13.4, PTX9, and cuRAND 11 support.
   - Faster MoE training: Added communication and GEMM overlap in MaxText and TransformerEngine, NCCL-based expert parallelism, and faster top-k routing to improve GPU utilization.
   - Improved attention and low-precision operations: Added cuDNN flex attention and Blackwell attention optimizations, reduced FP4 memory requirements, and fixed correctness issues across FP4, FP8, and batched attention.
   - More efficient distributed execution and runtime: Enhanced collectives, Open MPI cluster detection, memory reuse, and command buffers to reduce overhead, improve memory predictability, and expand profiling support.
+<details><summary>Prior release information</summary>
+
 - **[NGC 26.08](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-08.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.08-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.08-maxtext-py3) images released
   - [`CUDA 13.4.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-08.html), JAX [`v0.11.0`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.0)
   - MoE: Improves training speed and GPU utilization through communication/GEMM overlap, fused feed-forward operations, faster expert routing, and new NCCL-based expert parallelism. It also fixes DeepSeek-V3 routing and adds activation configurability.
   - Attention: Reduces memory use for long-context training with packed all-gather and adds cuDNN-backed flexible attention.
   - Compiler/runtime: Upgrades JAX to v0.11.0 with CUDA 13.4, improves GPU collectives and TopK operations, updates Triton, and fixes an autotuning deadlock.
-<details><summary>Prior release information</summary>
-
 - **[NGC 26.07](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-07.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.07-maxtext-py3) images released
   - [`CUDA 13.3.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-07.html), JAX [`v0.10.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.10.2)
   - Improved NCCL plugin expereince on GCP; cuDNN-backed flex attention re-enabled; support for CuDNN AoT compilation in XLA; LLM training speedup
@@ -57,6 +65,10 @@ JAX Toolbox
 
 
 Detailed release notes for NGC JAX containers are published in the [**NGC JAX release notes**](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/index.html).
+
+## Hands-on tutorials
+
+- [Nov 2026] [**Diagnose Compute- and Memory-Bound Custom JAX Kernels**](tutorials/jax-profiling/diagnose_compute_and_memory_bound_custom_jax_kernels.ipynb)
 
 ## Tech blogs
 - [Sep 2026] [**Collective GEMMs in Tensor Sequence Parallelism**](https://docs.nvidia.com/jax-toolbox/tech-blogs/collective-gemms)
@@ -92,7 +104,6 @@ Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**
 | :--- | :---: | :---: | :---: | :---: |
 | [jax](https://github.com/jax-ml/jax)|  | pre-training | `ghcr.io/nvidia/jax:jax` | [`nvcr.io/nvidia/jax:YY.MM-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-py3) |
 | [maxtext](https://github.com/google/maxtext)| [**DeepSeek V3.2**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#deepseek), [**Gemma 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#gemma), [**Llama 4**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#llama), [**Mixtral**](https://maxtext.readthedocs.io/en/latest/reference/models/supported_models_and_architectures.html#mistral-mixtral) | pre-training | `ghcr.io/nvidia/jax:maxtext` | [`nvcr.io/nvidia/jax:YY.MM-maxtext-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/jax/tags?version=26.05-maxtext-py3) |
-| [axlearn](./docs/frameworks/axlearn/README.md) | Fuji | pre-training | `ghcr.io/nvidia/jax:axlearn` | |
 | [alphafold3](https://github.com/google-deepmind/alphafold3) | Evoformer | inference | `ghcr.io/nvidia/jax:alphafold` | |
 
 
@@ -231,30 +242,6 @@ Stable builds are released at the end of each month to NVIDIA's [**NGC Catalog**
         <br>
         <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-badge-maxtext-multi-node-h100-json">
           <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-maxtext-multi-node-H100.json&logo=nvidia&label=MaxText%20-%20multi-node%20(H100)">
-        </a>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://github.com/NVIDIA/JAX-Toolbox/blob/main/.github/container/Dockerfile.axlearn">
-          <img style="height:1em;" src="https://img.shields.io/static/v1?label=&color=gray&logo=docker&message=AXLearn%3D%7Bcore%2CAXLearn%7D">
-        </a>
-      </td>
-      <td>
-        <code>ghcr.io/nvidia/jax:axlearn</code>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-axlearn-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-build-amd64.json&logo=docker&label=amd64">
-        </a>
-        <br>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae/#file-final-axlearn-md">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-build-arm64.json&logo=docker&label=arm64">
-        </a>
-      </td>
-      <td>
-        <a href="https://gist.github.com/nvjax/913c2af68649fe568e9711c2dabb23ae#file-badge-axlearn-test-json">
-          <img style="height:1em;" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fnvjax%2F913c2af68649fe568e9711c2dabb23ae%2Fraw%2Fbadge-axlearn-test.json&logo=nvidia&label=H100%20distributed">
         </a>
       </td>
     </tr>

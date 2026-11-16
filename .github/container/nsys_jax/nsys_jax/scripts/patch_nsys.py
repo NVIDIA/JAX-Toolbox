@@ -1825,7 +1825,9 @@ def main():
                 case "110":
                     patch_content = patch_content_2025_1_1_110
                 case _:
-                    raise Exception(f"{m.group(1)}.{m.group(2)} patch not known")
+                    raise NotImplementedError(
+                        f"{m.group(1)}.{m.group(2)} patch not known"
+                    )
         case _:
             patch_content = None
     if patch_content is not None:

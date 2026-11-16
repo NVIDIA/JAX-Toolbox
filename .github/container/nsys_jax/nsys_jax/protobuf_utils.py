@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Optional
 
 from .utils import default_data_prefix
 
@@ -27,23 +26,23 @@ def which(executable: str) -> pathlib.Path:
             path.insert(0, venv_bin)
     exe = shutil.which(executable, path=":".join(path))
     if exe is None:
-        raise Exception(f"Did not find {executable} in PATH")
+        raise FileNotFoundError(f"Did not find {executable} in PATH")
     return pathlib.Path(exe)
 
 
 def compile_protos(
     proto_dir: str | pathlib.Path,
     output_dir: str | pathlib.Path,
-    output_stub_dir: Optional[str | pathlib.Path] = None,
+    output_stub_dir: str | pathlib.Path | None = None,
 ):
     if not os.path.isdir(proto_dir):
-        raise Exception(f"Input: {proto_dir} is not a directory")
+        raise NotADirectoryError(f"Input: {proto_dir} is not a directory")
     if not os.path.isdir(output_dir):
-        raise Exception(f"Output: {output_dir} is not a directory")
+        raise NotADirectoryError(f"Output: {output_dir} is not a directory")
     # Find the .proto files
     proto_files = glob.glob("**/*.proto", recursive=True, root_dir=proto_dir)
     if len(proto_files) == 0:
-        raise Exception(f"Did not find any .proto files under {proto_dir}")
+        raise FileNotFoundError(f"Did not find any .proto files under {proto_dir}")
     protoc = which("protoc")
     # Generate code to load the protobuf files
     args: list[str | pathlib.Path] = [
@@ -57,9 +56,11 @@ def compile_protos(
     subprocess.run(args, check=True)
 
 
-def ensure_compiled_protos_are_importable(
-    *, prefix: pathlib.Path = default_data_prefix()
-):
+# Evaluated once at import time, as the previous default argument was.
+_DEFAULT_PREFIX = default_data_prefix()
+
+
+def ensure_compiled_protos_are_importable(*, prefix: pathlib.Path = _DEFAULT_PREFIX):
     """
     See if the Python bindings generated from .proto are importable, and if not then
     generate them in a temporary directory and prepend it to sys.path.
