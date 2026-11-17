@@ -1,0 +1,45 @@
+# Profiling output.
+profile_artifacts/
+
+# Nsight and profiler reports saved outside profile_artifacts/.
+*.nsys-rep
+*.ncu-rep
+*.ncu-repz
+*.qdstrm
+*.qdrep
+*.sqlite
+*.sqlite-*
+*.prof
+memory.svg
+recipe_dependencies_install_log.txt
+
+# Jupyter.
+.ipynb_checkpoints/
+Untitled*.ipynb
+.virtual_documents/
+
+# Python.
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments.
+.venv/
+venv/
+env/
+
+# OS and editor files.
+.DS_Store
+*.swp
+
+# Local tooling configuration.
+.claude/
+
+# Crash dumps.
+core
+core.[0-9]*

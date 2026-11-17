@@ -10,12 +10,19 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
-class CouldNotReproduceFailure(Exception):
-    pass
+class CouldNotReproduceDesiredOutcome(Exception):
+    """Raised when a precondition check does not produce its expected outcome."""
 
-
-class CouldNotReproduceSuccess(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        expected_outcome: ClassifiedTestOutcome,
+        actual_outcome: ClassifiedTestOutcome,
+    ) -> None:
+        super().__init__(message)
+        self.expected_outcome = expected_outcome
+        self.actual_outcome = actual_outcome
 
 
 class TestExecutionOutcome(Enum):
@@ -365,6 +372,13 @@ def _get_versions(
     primary_index: int | None = None,
     versions: typing.OrderedDict[str, typing.Sequence[tuple[str, datetime.datetime]]],
 ) -> tuple[dict[str, str], dict[str, int]]:
+    """Select the primary version and contemporary versions of other packages.
+
+    For each secondary package, choose the oldest version whose timestamp is not
+    older than the selected primary version, falling back to its latest version.
+    The returned indices allow callers to narrow every package history around the
+    selected version vector.
+    """
     if primary_index is None:
         primary_index = len(versions[primary]) // 2
         log_msg = f"Chose from {len(versions[primary])} remaining {primary} versions"
@@ -574,9 +588,7 @@ def version_search(
             result_cache[cache_key] = bisect_result
         return bisect_result
 
-    def _check(
-        good_or_bad, check_versions, desired_outcome, CouldNotReproduceDesiredOutcome
-    ):
+    def _check(good_or_bad, check_versions, desired_outcome):
         # Verify that we can build successfully and that the test gives the expected results.
         logger.info(
             f"Verifying test outcome using {good_or_bad} versions "
@@ -602,10 +614,21 @@ def version_search(
                 )
                 logger.fatal(err)
                 logger.fatal(check.build_stdouterr)
-                logger.fatal(check.stdouterr)
-                raise CouldNotReproduceDesiredOutcome(err)
+                raise CouldNotReproduceDesiredOutcome(
+                    err,
+                    expected_outcome=desired_outcome,
+                    actual_outcome=ClassifiedTestOutcome.ERROR,
+                )
             outcome = classifier([check])
-            assert outcome != ClassifiedTestOutcome.ERROR
+            if outcome == ClassifiedTestOutcome.ERROR:
+                err = f"Test error attempting to reproduce result with {good_or_bad} versions"
+                logger.fatal(err)
+                logger.fatal(check.stdouterr)
+                raise CouldNotReproduceDesiredOutcome(
+                    err,
+                    expected_outcome=desired_outcome,
+                    actual_outcome=outcome,
+                )
             if outcome == ClassifiedTestOutcome.AMBIGUOUS:
                 # For metric-based triage, these up-front checking loops are important
                 # to help initialise the classifier state. Rather than spending a long
@@ -636,14 +659,17 @@ def version_search(
                 err = f"Could not reproduce results with {good_or_bad} versions ({outcome}, iteration {n})"
                 logger.fatal(err)
                 logger.fatal(check.stdouterr)
-                raise CouldNotReproduceDesiredOutcome(err)
+                raise CouldNotReproduceDesiredOutcome(
+                    err,
+                    expected_outcome=desired_outcome,
+                    actual_outcome=outcome,
+                )
 
     def _check_success():
         _check(
             "'good'",
             _earliest_versions(versions),
             ClassifiedTestOutcome.PASS,
-            CouldNotReproduceSuccess,
         )
 
     def _check_failure():
@@ -651,7 +677,6 @@ def version_search(
             "'bad'",
             _latest_versions(versions),
             ClassifiedTestOutcome.FAIL,
-            CouldNotReproduceFailure,
         )
 
     if skip_precondition_checks:
@@ -844,7 +869,7 @@ def version_search(
             # as given middle=fail, and Q1=fail the points between Q1 and middle will
             # not be checked.
             n_primary = len(versions[primary])
-            unavailable_commits = []
+            unavailable_commits: list[str] = []
             for n in range(1, n_primary - 1):
                 versions_n, _ = get_versions(primary_index=n, versions=versions)
                 # Should have yielded no usable results if tested.
