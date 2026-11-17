@@ -90,8 +90,9 @@ python get-pip.py -e /opt/pip
 rm -rf get-pip.py ~/.cache/pip
 EOF
 
-# Install pip-tools, which is used in pip-finalize.sh
-RUN pip install --no-cache-dir pip-tools
+# Keep pip-tools compatible with the patched pip used by pip-finalize.sh.
+# Otherwise its pip dependency can replace our VCS-equivalency implementation.
+RUN pip install --no-cache-dir 'pip==23.3.1' pip-tools
 
 # The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
 # of those components conform to XLA's expectations for local installations.
