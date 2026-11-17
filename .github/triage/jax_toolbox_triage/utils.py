@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import pathlib
@@ -7,7 +9,7 @@ import typing
 
 
 def container_url(
-    date: datetime.date, *, container: str, template: typing.Optional[str] = None
+    date: datetime.date, *, container: str, template: str | None = None
 ) -> str:
     """
     Construct the URL for --container on the given date.
@@ -49,13 +51,10 @@ def get_logger(output_prefix: pathlib.Path, append: bool = False) -> logging.Log
 
 
 def prepare_bazel_cache_mounts(
-    bazel_cache: typing.Optional[str],
-) -> typing.Sequence[typing.Tuple[pathlib.Path, pathlib.Path]]:
-    if (
-        bazel_cache is None
-        or bazel_cache.startswith("http://")
-        or bazel_cache.startswith("https://")
-        or bazel_cache.startswith("grpc://")
+    bazel_cache: str | None,
+) -> typing.Sequence[tuple[pathlib.Path, pathlib.Path]]:
+    if bazel_cache is None or bazel_cache.startswith(
+        ("http://", "https://", "grpc://")
     ):
         # No cache or remote cache, no mount needed
         return []
@@ -72,7 +71,7 @@ def run_and_log(
     command,
     logger: logging.Logger,
     stderr: typing.Literal["interleaved", "separate"],
-    cwd: typing.Optional[str] = None,
+    cwd: str | None = None,
     log_level: int = logging.DEBUG,
 ) -> subprocess.CompletedProcess:
     assert stderr in {"interleaved", "separate"}, stderr

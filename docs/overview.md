@@ -12,14 +12,13 @@ JAX Toolbox provides a public CI pipeline, Docker images for popular JAX librari
 | Framework | Models | Use cases | Container |
 | :--- | :--- | :--- | :--- |
 | [MaxText](https://github.com/google/maxtext) | GPT, LLaMA, Gemma, Mistral, Mixtral | Pre-training | `ghcr.io/nvidia/jax:maxtext` |
-| [AXLearn](frameworks/axlearn) | Fuji | Pre-training | `ghcr.io/nvidia/jax:axlearn` |
 | [AlphaFold3](https://github.com/google-deepmind/alphafold3) | EvoFormer | Inference | `ghcr.io/nvidia/jax:alphafold` |
 
 ## What's Included
 
 - **Performance guides** — XLA and JAX flags for high-performance LLMs, FP8 quantization, and profile-guided latency estimation (PGLE)
 - **Profiling tools** — `nsys-jax`, a wrapper around Nsight Systems for collecting and analyzing JAX program profiles
-- **Framework integration** — Pre-configured containers and example configs for MaxText and AXLearn
+- **Framework integration** — Pre-configured containers and example configs for MaxText
 - **Resiliency** — Ray-based fault-tolerant JAX training patterns
 - **Triage tool** — Automates regression attribution to specific commits or container versions
 
@@ -31,7 +30,7 @@ Pull a container for your target framework and run:
 docker pull ghcr.io/nvidia/jax:maxtext
 ```
 
-See the [MaxText](frameworks/maxtext) or [AXLearn](frameworks/axlearn) pages for hardware requirements, example configs, and performance numbers.
+See the [MaxText](frameworks/maxtext) page for hardware requirements, example configs, and performance numbers.
 
 ## Source
 

@@ -38,8 +38,6 @@ navigation:
             path: frameworks/maxtext/README.md
           - page: NVFP4 Training Example
             path: frameworks/maxtext/nvfp4/README.md
-      - page: AXLearn
-        path: frameworks/axlearn/README.md
 
   # ==================== Performance & Profiling ====================
   - section: Performance & Profiling
@@ -54,6 +52,14 @@ navigation:
         path: NATIVE_FP8.md
       - page: nsys-jax
         path: nsys-jax.md
+
+  # ==================== Tech Blogs ====================
+  - section: Tech Blogs
+    contents:
+      - page: Collective GEMMs in Tensor Sequence Parallelism
+        path: blog/collective-gemms.md
+        # Explicit slug: Fern otherwise renders "GEMMs" as "gem-ms"
+        slug: collective-gemms
 
   # ==================== Resiliency ====================
   - section: Resiliency

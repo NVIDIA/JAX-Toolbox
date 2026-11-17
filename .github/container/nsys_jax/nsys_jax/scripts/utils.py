@@ -73,5 +73,6 @@ def execute_analysis_script(
         result = subprocess.run(
             analysis_command,
             cwd=working_dir,
+            check=False,
         )
     return result, working_dir.relative_to(data)

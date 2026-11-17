@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: '0 7 * * *'
       timezone: "Europe/London"
+    - cron: '0 0 * * 6' # Fortnightly scale-training run; metadata skips alternate weeks
+      timezone: "Europe/London"
   push:
     branches:
       - 'pull-request/[0-9]+'
@@ -44,7 +46,7 @@ on:
         type: string
         description: |
           A comma-separated PACKAGE=URL#REF list to override sources used by build.
-          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,axlearn,equinox,maxtext,TorchAX} (case-insensitive)
+          PACKAGE∊{JAX,XLA,Flax,transformer-engine,airio,equinox,maxtext,TorchAX} (case-insensitive)
         default: ''
         required: false
       MODE:
@@ -55,9 +57,13 @@ on:
           - jax - run all the tests related to jax system
           - te - run all the tests related to TE
           - maxtext - run only the tests for maxtext
-          - axlearn - run only the tests for axlearn
-        options: [full, jax, te, maxtext, axlearn]
+        options: [full, jax, te, maxtext]
         default: full
+      SCALE_TRAINING:
+        type: boolean
+        description: "Run the scale-training pipeline."
+        default: false
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -85,6 +91,8 @@ jobs:
       MANIFEST_BRANCH: ${{ steps.manifest-branch.outputs.MANIFEST_BRANCH }}
       MERGE_BUMPED_MANIFEST: ${{ steps.manifest-branch.outputs.MERGE_BUMBED_MANIFEST }}
       CUDA_IMAGE: ${{ steps.cuda-image.outputs.CUDA_IMAGE }}
+      SHOULD_RUN: ${{ steps.schedule.outputs.SHOULD_RUN }}
+      IS_STAGING: ${{ steps.run-type.outputs.IS_STAGING }}
       SUFFIX: ${{ steps.run-type.outputs.SUFFIX }}
     steps:
       - name: Cancel workflow run if the trigger is a draft PR
@@ -97,11 +105,34 @@ jobs:
                 "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel"
           while true; do sleep 1; done  # blocks execution in case workflow cancellation takes time
 
+      - name: Check fortnightly staging schedule
+        id: schedule
+        shell: python
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          import datetime
+          import os
+          from zoneinfo import ZoneInfo
+
+          should_run = True
+          if os.environ["GITHUB_EVENT_NAME"] == "schedule" and os.environ["SCHEDULE"] == "0 0 * * 6":
+              # First scheduled staging Saturday; repeat every two calendar weeks.
+              anchor = datetime.date(2026, 10, 10)
+              today = datetime.datetime.now(ZoneInfo("Europe/London")).date()
+              days_since_anchor = (today - anchor).days
+              should_run = days_since_anchor >= 0 and (days_since_anchor // 7) % 2 == 0
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"SHOULD_RUN={str(should_run).lower()}", file=output)
+          if not should_run:
+              print("Skipping this week's scheduled staging pipeline.")
+
       - name: Set build date
         id: date
         shell: bash -x -e {0}
         run: |
-          if [[ "${{ github.event.schedule }}" == "0 6 * * 6" ]]; then
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" ]]; then
             BUILD_DATE=$(TZ='Europe/London' date '+%Y-%m-%d')
           else
             BUILD_DATE=$(TZ='US/Los_Angeles' date '+%Y-%m-%d')
@@ -155,11 +186,27 @@ jobs:
           fi
           echo "CUDA_IMAGE=${CUDA_IMAGE}" >> $GITHUB_OUTPUT
 
+      - name: Determine whether this is a -staging run
+        id: run-type
+        shell: bash -x -e {0}
+        run: |
+          if [[ "${{ github.event.schedule }}" == "0 0 * * 6" || "${{ inputs.SCALE_TRAINING }}" == "true" ]]; then
+            echo "IS_STAGING=true" >> $GITHUB_OUTPUT
+            echo "SUFFIX=-staging" >> $GITHUB_OUTPUT
+          else
+            echo "IS_STAGING=false" >> $GITHUB_OUTPUT
+            echo "SUFFIX=" >> $GITHUB_OUTPUT
+          fi
+
   bump-manifest:
     needs: metadata
+    if: needs.metadata.outputs.SHOULD_RUN == 'true'
     runs-on: ubuntu-22.04
     outputs:
       SOURCE_URLREFS: ${{ steps.source-urlrefs.outputs.SOURCE_URLREFS }}
+      XLA_TAG: ${{ steps.source-urlrefs.outputs.XLA_TAG }}
+      XLA_URLREF: ${{ steps.source-urlrefs.outputs.XLA_URLREF }}
+      XLA_TAG_MESSAGE: ${{ steps.source-urlrefs.outputs.XLA_TAG_MESSAGE }}
     steps:
       - name: Check out the repository under ${GITHUB_WORKSPACE}
         uses: actions/checkout@v6
@@ -213,6 +260,8 @@ jobs:
       - name: Create URL ref build args
         id: source-urlrefs
         shell: bash -x -e {0}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # converts manifest yaml to a json object of {SOFTWARE_NAME: URL#REF, ...}
           urlrefs=$(
@@ -227,6 +276,34 @@ jobs:
             URLREF=$(cut -d= -f 2- <<< "${override}")
             urlrefs=$(echo "$urlrefs" | jq -c ". + {\"$PACKAGE\": \"$URLREF\"}")
           done
+
+          if [[ "${{ needs.metadata.outputs.IS_STAGING }}" == "true" ]]; then
+            xla_ref=$(python3 .github/workflows/scripts/extract_commits.py)
+            echo "$xla_ref" | jq
+
+            XLA_URLREF=$(jq -er '.urlref' <<< "$xla_ref")
+            XLA_TAG=$(jq -er '.tag' <<< "$xla_ref")
+            JAX_COMMIT=$(jq -er '.jax_commit' <<< "$xla_ref")
+            JAX_URLREF="https://github.com/jax-ml/jax.git#${JAX_COMMIT}"
+            urlrefs=$(
+              jq -c \
+                --arg xla "$XLA_URLREF" \
+                --arg jax "$JAX_URLREF" \
+                '. + {"XLA": $xla, "JAX": $jax}' \
+                <<< "$urlrefs"
+            )
+
+            echo "Using ${XLA_URLREF} for the scale-training XLA build"
+            echo "Using ${JAX_URLREF} for the scale-training JAX build"
+
+            {
+              echo "XLA_TAG=${XLA_TAG}"
+              echo "XLA_URLREF=${XLA_URLREF}"
+              echo 'XLA_TAG_MESSAGE<<EOF_XLA_TAG_MESSAGE'
+              jq -r '.message' <<< "$xla_ref"
+              echo 'EOF_XLA_TAG_MESSAGE'
+            } >> $GITHUB_OUTPUT
+          fi
 
           echo "SOURCE_URLREFS=${urlrefs}" >> $GITHUB_OUTPUT
           echo "Final URLREF going to be used"
@@ -259,7 +336,7 @@ jobs:
   # Only merge if everything succeeds
   merge-new-manifest:
     runs-on: ubuntu-22.04
-    if: ${{ !cancelled() && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
+    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' && needs.metadata.outputs.MERGE_BUMPED_MANIFEST == 'true' && needs.metadata.outputs.MANIFEST_BRANCH != github.sha }}
     needs:
       - metadata
       - amd64
@@ -370,7 +447,7 @@ jobs:
 
   make-publish-configs:
     runs-on: ubuntu-22.04
-    if:  ${{ !cancelled() }}
+    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' }}
     env:
       MEALKIT_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax-mealkit' || 'mock-jax-mealkit' }}
       FINAL_IMAGE_REPO: ${{ needs.metadata.outputs.PUBLISH == 'true' && 'jax' || 'mock-jax' }}
@@ -389,7 +466,7 @@ jobs:
             jax
             equinox
             maxtext
-            axlearn
+            alphafold
             torchax
           )
           declare -a STAGES=(
@@ -459,7 +536,7 @@ jobs:
     needs:
       - metadata
       - make-publish-configs
-    if:  ${{ !cancelled() && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
+    if:  ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' && needs.make-publish-configs.outputs.PUBLISH_CONFIGS.config != '{"config":[]}' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.make-publish-configs.outputs.PUBLISH_CONFIGS) }}
@@ -473,9 +550,33 @@ jobs:
         type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }},priority=${{ matrix.config.priority }}
         type=raw,value=${{ matrix.config.flavor }}${{ needs.metadata.outputs.SUFFIX }}-${{ needs.metadata.outputs.BUILD_DATE }},priority=${{ matrix.config.priority }}
 
+  # The ci-announcement artifact is posted to Slack outside this repository,
+  # where the channel and the mention are set.
+  notify-staging:
+    needs: [metadata, bump-manifest, publish-containers]
+    if: ${{ !cancelled() && needs.metadata.outputs.IS_STAGING == 'true' && needs.publish-containers.result == 'success' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compose announcement
+        env:
+          XLA_TAG: ${{ needs.bump-manifest.outputs.XLA_TAG }}
+          XLA_TAG_MESSAGE: ${{ needs.bump-manifest.outputs.XLA_TAG_MESSAGE }}
+          BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}
+        run: python .github/workflows/scripts/compose-announcement.py
+
+      - name: Upload announcement
+        uses: actions/upload-artifact@v6
+        with:
+          name: ci-announcement
+          path: announcement.json
+          if-no-files-found: error
+
   finalize:
     needs: [metadata, amd64, arm64, publish-containers]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.metadata.outputs.SHOULD_RUN == 'true' }}
     uses: ./.github/workflows/_finalize.yaml
     with:
       BUILD_DATE: ${{ needs.metadata.outputs.BUILD_DATE }}

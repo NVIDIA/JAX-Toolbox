@@ -91,6 +91,10 @@ fi
 popd
 
 ## update the manifest file
+if [[ "${GIT_REPO}" =~ ^(https?://)[^/]*@(.*)$ ]]; then
+    GIT_REPO="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+fi
+
 mkdir -p $(dirname ${MANIFEST})
 touch ${MANIFEST}
 PACKAGE=$(basename "${DESTINATION}")

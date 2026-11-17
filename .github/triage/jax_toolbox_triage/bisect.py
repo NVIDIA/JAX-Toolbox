@@ -1,9 +1,27 @@
+from __future__ import annotations
+
 import argparse
 import datetime
 import logging
-import typing
 
 from .container import Container
+
+
+def ensure_full_history(worker: Container, directory: str, remote: str) -> None:
+    """A shallow boundary must not be mistaken for a commit with no parent."""
+    shallow = worker.check_exec(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        policy="once",
+        stderr="separate",
+        workdir=directory,
+    ).stdout.strip()
+    if shallow == "true":
+        worker.check_exec(
+            ["git", "fetch", "--unshallow", "--no-tags", remote],
+            policy="once_per_container",
+            stderr="separate",
+            workdir=directory,
+        )
 
 
 def get_commit_history(
@@ -15,7 +33,7 @@ def get_commit_history(
     main_branch: str,
     logger: logging.Logger,
     args: argparse.Namespace,
-) -> typing.Tuple[typing.List[typing.Tuple[str, datetime.datetime]], typing.List[str]]:
+) -> tuple[list[tuple[str, datetime.datetime]], list[str]]:
     """
     Get the commit history for a given package between two commits.
 
@@ -33,6 +51,7 @@ def get_commit_history(
         data: list, list of all the commits
         cherry_pick_ranges: list[str], commits to attempt cherry-picking
     """
+    ensure_full_history(worker, dir, args.override_remotes.get(package, "origin"))
     # In particular the end commit might not already be known if the older,
     # passing, container is being used for triage.
     commits_known = (

@@ -1,11 +1,11 @@
 import argparse
-from collections import defaultdict
 import copy
 import os
 import pathlib
 import shutil
 import tempfile
 import zipfile
+from collections import defaultdict
 
 from .utils import execute_analysis_script, shuffle_analysis_arg
 
@@ -80,7 +80,7 @@ def main():
     if args.output.suffix != ".zip":
         args.output = args.output.with_suffix(".zip")
     if os.path.exists(args.output) and not args.force_overwrite:
-        raise Exception(
+        raise FileExistsError(
             f"Output path {args.output} already exists and -f/--force-overwrite was not passed"
         )
 
@@ -104,7 +104,7 @@ def main():
                     assert filename in hashes
                     seen_hashes = hashes[filename]
 
-                    def write(dst_info):
+                    def write(dst_info, member=member):
                         assert dst_info.filename not in set(ofile.namelist())
                         with ifile.open(member) as src:
                             with ofile.open(dst_info, "w") as dst:

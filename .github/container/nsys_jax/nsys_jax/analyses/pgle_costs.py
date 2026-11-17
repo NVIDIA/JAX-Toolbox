@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import argparse
+import pathlib
+
 from nsys_jax import (
     apply_warmup_heuristics,
     ensure_compiled_protos_are_importable,
@@ -7,7 +9,6 @@ from nsys_jax import (
     xla_module_metadata,
 )
 from nsys_jax.protobuf import HloProto, HloProtoSet
-import pathlib
 
 
 def get_scheduling_name(module: HloProto, name: str) -> str:
@@ -27,7 +28,7 @@ def write_pbtxt(outdir: pathlib.Path, series_ms, hlo_module_set: HloProtoSet):
     with open(outdir / fp_fname, "w") as ofile:
         for name, cost_ms in series_ms.items():
             scheduling_name = hlo_module_set.unique_result(
-                lambda mod: get_scheduling_name(mod, name)
+                lambda mod, name=name: get_scheduling_name(mod, name)
             )
             null_names += len(scheduling_name) == 0
             ofile.write(
@@ -72,7 +73,7 @@ def main():
         print(f"Processing module {row.Name} ({row.Index})")
         try:
             hlo_set = xla_module_metadata(row.Index, policy="all", prefix=args.prefix)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 (best effort: skip unloadable modules)
             print(f"Skipping due to: {e}")
             continue
         # Thunks in this module

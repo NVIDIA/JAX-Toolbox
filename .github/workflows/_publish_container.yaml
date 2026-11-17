@@ -94,10 +94,43 @@ jobs:
       - name: Create multi-arch images
         id: multi-arch
         shell: bash -x -e {0}
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          MANIFESTS: ${{ steps.get-manifests.outputs.manifests }}
         run: |
-          for tag in $(echo -e "${{ steps.meta.outputs.tags }}"); do
-            docker buildx imagetools create --tag $tag ${{ steps.get-manifests.outputs.manifests }}
-          done
+          retry() {
+            local max_attempts=6
+            local attempt=1
+            local delay=5
+
+            until "$@"; do
+              if (( attempt >= max_attempts )); then
+                echo "::error::Command failed after ${max_attempts} attempts"
+                return 1
+              fi
+
+              jitter=$((RANDOM % 5))
+              wait_time=$((delay + jitter))
+              echo "::warning::Attempt ${attempt}/${max_attempts} failed; retrying in ${wait_time}s"
+              sleep "${wait_time}"
+
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+              if (( delay > 60 )); then
+                delay=60
+              fi
+            done
+          }
+
+          read -r -a manifests <<< "$MANIFESTS"
+
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then
+              retry docker buildx imagetools create \
+                --tag "$tag" \
+                "${manifests[@]}"
+            fi
+          done <<< "$TAGS"
 
       - name: Get GitHub package URL
         id: github-meta

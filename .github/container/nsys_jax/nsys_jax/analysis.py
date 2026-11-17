@@ -1,13 +1,14 @@
-from collections import defaultdict
 import functools
 import math
-import numpy as np
-import pandas as pd  # type: ignore
 import pathlib
+from collections import defaultdict
 from typing import Any
 
+import numpy as np
+import pandas as pd  # type: ignore
+
 from .protobuf import HloProto, _host_memory_space, xla_module_metadata
-from .utils import make_child_mask, ProfilerData
+from .utils import ProfilerData, make_child_mask
 
 pd.options.mode.copy_on_write = True
 
@@ -154,7 +155,7 @@ def element_type_width(element_type: int) -> int:
     for prefix in ["BF", "C", "F", "S", "U"]:
         if enum_name.startswith(prefix):
             return int(enum_name[len(prefix) :])
-    raise Exception(f"Could not deduce size of {enum_name}")
+    raise ValueError(f"Could not deduce size of {enum_name}")
 
 
 def _collective_correction(kind: str, size: int) -> tuple[float, float]:
@@ -190,10 +191,13 @@ def _get_message_size(
     _, inst = module_proto.find_instruction(instruction)
     comm_inst = inst.communication_proto()
     assert comm_inst.opcode in {
+        "all-gather",
         "all-gather-start",
+        "all-reduce",
         "all-reduce-start",
         "all-to-all",
         "collective-broadcast",
+        "collective-permute",
         "collective-permute-start",
         "dynamic-slice",
         "dynamic-update-slice",
@@ -211,7 +215,7 @@ def _get_message_size(
         assert rem == 0
         return size_bytes
 
-    if comm_inst.opcode == "collective-permute-start":
+    if comm_inst.opcode in {"collective-permute-start", "collective-permute"}:
         # See https://openxla.org/xla/operation_semantics#collectivepermute, which
         # generates pair-wise send+recv between devices
         collective_size = 2
@@ -250,14 +254,19 @@ def _get_message_size(
             replica_groups = comm_inst.replica_groups
         if len(replica_groups) == 0:
             # perhaps we have the newer format
+            collective_size = 0
             try:
                 collective_size = comm_inst.collective_device_list.iota_replica_group_list.num_devices_per_group
             except AttributeError:
-                # Or the even-newer format
-                collective_size = (
-                    comm_inst.iota_collective_device_list.num_devices_per_group
-                )
-            if len(replica_groups) == 0:
+                pass
+            if collective_size == 0:
+                try:
+                    collective_size = (
+                        comm_inst.iota_collective_device_list.num_devices_per_group
+                    )
+                except AttributeError:
+                    pass
+            if collective_size == 0:
                 # Or the EVEN-newer format. It seems that process_allgather emits this. The default print(axes) is unhelpful, beware.
                 mesh = comm_inst.mesh_axes_replica_group_list.mesh
                 axes = comm_inst.mesh_axes_replica_group_list.axes
@@ -269,7 +278,7 @@ def _get_message_size(
                     [mesh.axes[ax.mesh_axis_index].size for ax in axes]
                 )
         else:
-            collective_sizes = set(len(group.replica_ids) for group in replica_groups)
+            collective_sizes = {len(group.replica_ids) for group in replica_groups}
             assert len(collective_sizes) == 1, (
                 f"Heterogeneous collective {comm_inst} could not be interpreted"
             )
@@ -388,39 +397,60 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
         worker_parent_ids = profile_df.loc[
             profile_df["TID"].ne(main_thread), "ParentId"
         ].astype(np.int32)
+        # Look the parent ranges up by their full (ProfileName, RangeId) key. Indexing
+        # with ``(profile_name, ids)`` drops the ProfileName level in pandas>=3.1, but
+        # the lookups below need the full key.
+        parent_keys = pd.MultiIndex.from_arrays(
+            [
+                np.full(len(worker_parent_ids), profile_name, dtype=object),
+                worker_parent_ids.to_numpy(),
+            ],
+            names=profile_df.index.names,
+        ).unique()
         # These are the main-thread ranges that directly contain parallel workers
-        launcher_mask = profile_df.loc[(profile_name, worker_parent_ids), "TID"].eq(
-            main_thread
-        )
-        launcher_ids = launcher_mask[launcher_mask].index.unique()
+        launcher_mask = profile_df.loc[parent_keys, "TID"].eq(main_thread)
+        launcher_ids = launcher_mask[launcher_mask].index
         # Loop over the main-thread ranges that launched parallel work
         for launcher_row in profile_df.loc[launcher_ids, :].itertuples():
             assert launcher_row.TID == main_thread
-            # Find all child ranges; some may still be in the main thread. Assume for now
-            # that the sequence will just be something like:
+            # Find all child ranges; some may still be in the main thread. Historically
+            # the sequence was something like:
             #   M(A) M(A) M(A) .. W1(B) W2(B) W3(B) W1(B) .. M(C) M(C)
             # i.e. the main thread M does some task (A), then workers W{1,2,3} do some task
-            # (B) in parallel, then the main thread continues with another task (C),
-            # without overlap between A, B and C. For simplicity, we assume that there is
-            # only one parallel region B in a given parent range, but this restriction
-            # could be relaxed if needed.
+            # (B) in parallel, then the main thread continues with another task (C).
+            # Newer XLA may overlap B with main-thread work, which is handled below.
+            # For simplicity, we assume that there is only one parallel region B in a
+            # given parent range, but this restriction could be relaxed if needed.
             child_df = profile_df[make_child_mask(profile_df, launcher_row.Index)]
             is_main = child_df["TID"] == launcher_row.TID
             child_ends = child_df["StartMs"] + child_df["DurMs"]
             # Assuming there's only one parallel region inside `launcher_row`
             parallel_start = child_df.loc[~is_main, "StartMs"].min()
             parallel_end = child_ends[~is_main].max()
-            # Assert that there are no main-thread tasks during this period
-            main_before = is_main & (child_ends < parallel_start)
-            main_after = is_main & (child_df["StartMs"] > parallel_end)
-            assert ((main_before | main_after) == is_main).all()
+            # Worker activity accounts for the parallel region's wall time below.
+            # Remove overlapping main-thread activity from the serial accounting so
+            # that it is not counted for a second time later.
+            main_durations = child_df.loc[is_main, "DurMs"]
+            main_overlap_ms = (
+                np.minimum(child_ends[is_main], parallel_end)
+                - np.maximum(child_df.loc[is_main, "StartMs"], parallel_start)
+            ).clip(lower=0.0)
+            main_outside_fraction = 1.0 - (main_overlap_ms / main_durations).where(
+                main_durations > 0.0, 0.0
+            ).clip(lower=0.0, upper=1.0)
+            columns = ["DurChildMs", "DurNonChildMs"]
+            compile_df.loc[main_durations.index, columns] = compile_df.loc[
+                main_durations.index, columns
+            ].mul(main_outside_fraction, axis="index")
             # Aggregate statistics for how the worker threads spend their time and use that
             # distribution to divide up the [parallel_start, parallel_end] range of the overall
             # compilation time.
             parallel_dur = parallel_end - parallel_start
             total_worker_time = child_df.loc[~is_main, "DurNonChildMs"].sum()
 
-            def attribute_parallel_time(row):
+            def attribute_parallel_time(
+                row, parallel_dur=parallel_dur, total_worker_time=total_worker_time
+            ):
                 compile_time_ms[row.Name] += (
                     parallel_dur * row.DurNonChildMs / total_worker_time,
                     parallel_dur * row.DurChildMs / total_worker_time,
@@ -428,10 +458,11 @@ def generate_compilation_statistics(compile_df: pd.DataFrame) -> pd.DataFrame:
 
             child_df[~is_main].apply(attribute_parallel_time, axis="columns")
             # Easy to update these given the simplifying assumptions above; they are set to
-            # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`
+            # np.nan when worker ranges are spliced in by `_load_nvtx_pushpop_trace`.
+            # Main-thread child time inside parallel_dur has already been accounted for.
             compile_df.loc[launcher_row.Index, "DurChildMs"] = (
-                child_df.loc[is_main, "DurMs"].sum() + parallel_dur
-            )
+                main_durations - main_overlap_ms
+            ).sum() + parallel_dur
             compile_df.loc[launcher_row.Index, "DurNonChildMs"] = (
                 launcher_row.DurMs - compile_df.loc[launcher_row.Index, "DurChildMs"]
             )

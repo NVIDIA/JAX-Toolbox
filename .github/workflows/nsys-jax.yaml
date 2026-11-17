@@ -267,7 +267,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: "Install ruff"
-        run: pip install ruff
+        run: pip install ruff==0.17.3
       - name: "Run ruff checks"
         run: |
           ruff check ${NSYS_JAX_PYTHON_FILES}

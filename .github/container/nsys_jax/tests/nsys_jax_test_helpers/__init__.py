@@ -1,13 +1,15 @@
-from nsys_jax import ensure_compiled_protos_are_importable
 import os
 import pathlib
-import psutil
 import re
 import shutil
 import subprocess
 import tempfile
+import time
 import typing
 import zipfile
+
+import psutil
+from nsys_jax import ensure_compiled_protos_are_importable
 
 
 def nsys_jax_with_result(command, *, out_dir):
@@ -16,7 +18,9 @@ def nsys_jax_with_result(command, *, out_dir):
     cleaned up on destruction. Explicitly returns the `subprocess.CompletedProcess`
     instance.
     """
-    output = tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
+    # Keep the file open: nsys-jax overwrites it in place, and callers such as extract()
+    # pass this object, not its name, to zipfile.ZipFile.
+    output = tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")  # noqa: SIM115
     proc = subprocess.Popen(
         ["nsys-jax", "--force-overwrite", "--output", output.name] + command,
     )
@@ -35,11 +39,16 @@ def nsys_jax_with_result(command, *, out_dir):
 
         def _not_dead(child: psutil.Process) -> bool:
             try:
-                return child.status() != "dead"
+                return child.status() not in {
+                    psutil.STATUS_DEAD,
+                    psutil.STATUS_ZOMBIE,
+                }
             except psutil.NoSuchProcess:
                 return False
 
         descendants = list(filter(_not_dead, descendants))
+        if descendants:
+            time.sleep(0.1)
     return output, subprocess.CompletedProcess(
         args=proc.args, returncode=proc.returncode
     )
@@ -91,8 +100,9 @@ def multi_process_nsys_jax(
     """
     Helper to run a multi-process test under nsys-jax and yield several .zip
     """
+    # Keep the files open, as in nsys_jax_with_result.
     child_outputs = [
-        tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")
+        tempfile.NamedTemporaryFile(delete=False, dir=out_dir, suffix=".zip")  # noqa: SIM115
         for _ in range(num_processes)
     ]
     children = [

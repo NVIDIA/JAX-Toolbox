@@ -1,10 +1,10 @@
-from collections import defaultdict
-from collections.abc import Callable
 import functools
 import lzma
 import pathlib
 import re
 import typing
+from collections import defaultdict
+from collections.abc import Callable
 
 from .utils import default_data_prefix
 
@@ -84,15 +84,13 @@ class HloInstruction:
                 _, op = wrapped_hlo_proto.find_instruction_by_id(inst.operand_ids[i])
                 return _host_memory_space(op.proto())
 
-            if inst.opcode == "dynamic-slice" and host_dest != _host_operand(0):
-                return True
-            elif (
+            return (
+                inst.opcode == "dynamic-slice" and host_dest != _host_operand(0)
+            ) or (
                 inst.opcode == "dynamic-update-slice"
                 and host_dest == _host_operand(0)
                 and host_dest != _host_operand(1)
-            ):
-                return True
-            return False
+            )
 
         if self._proto.opcode in comm_opcodes | comm_start_opcodes:
             self._comm_proto = self._proto
@@ -177,6 +175,19 @@ class HloProto:
         """
         return self._instructions_by_id[id]
 
+    def instruction_ids(self):
+        """Return the IDs of all instructions in this HLO module."""
+        return self._instructions_by_id.keys()
+
+    def entry_computation_communication_instruction_names(self) -> list[str]:
+        """Return communication launch instructions from the entry computation."""
+        entry = self.find_computation(self._proto.hlo_module.entry_computation_id)
+        return [
+            inst.name
+            for inst in entry.instructions
+            if self._instructions[inst.name][1].is_communication()
+        ]
+
     def _get_stack_frame(self, frame_id: int) -> tuple[StackFrame, int]:
         """
         Extract a stack frame given an integer ID.
@@ -223,7 +234,7 @@ class HloProtoSet:
     xla_module_metadata with policy="all".
     """
 
-    def __init__(self, protos: dict[typing.Optional[str], HloProto]):
+    def __init__(self, protos: dict[str | None, HloProto]):
         assert len(protos), f"HloProtoSet got {len(protos)} HloProtos"
         self._protos = protos
 
@@ -250,7 +261,7 @@ class HloProtoSet:
         for proto in values:
             new_result = callable(proto)
             if result != new_result:
-                raise Exception(
+                raise ValueError(
                     f"Inconsistent results of {callable}: {result} and {new_result}"
                 )
         return result
@@ -290,7 +301,6 @@ def _remap_program_id(
     replica: str | None,
     allow_missing_protobuf: bool = False,
 ) -> str:
-    """ """
     # In multi-input mode, we will have something like:
     #   old_id = 1
     #   name = jit_foo
@@ -325,11 +335,11 @@ def _remap_program_id(
             # Autotuning candidate HLOs are not dumped.
             return "unknown"
         else:
-            raise Exception(
+            raise FileNotFoundError(
                 f"Could not find protobuf input for XlaModule {old_id} ({name}) in {dump_dir}"
             )
     elif len(candidates) > 1:
-        raise Exception(
+        raise ValueError(
             f"Could not find unique protobuf input for XlaModule {old_id} ({name}) in {dump_dir}: {candidates}"
         )
     candidate = candidates[0]
@@ -352,11 +362,15 @@ def _remap_program_id(
     return fingerprint
 
 
+# Evaluated once at import time, as the previous default argument was.
+_DEFAULT_PREFIX = default_data_prefix()
+
+
 @typing.overload
 def xla_module_metadata(
     program_id: int,
     policy: typing.Literal["consistent"],
-    prefix: pathlib.Path = default_data_prefix(),
+    prefix: pathlib.Path = _DEFAULT_PREFIX,
 ) -> HloProto: ...
 
 
@@ -364,7 +378,7 @@ def xla_module_metadata(
 def xla_module_metadata(
     program_id: int,
     policy: typing.Literal["all"],
-    prefix: pathlib.Path = default_data_prefix(),
+    prefix: pathlib.Path = _DEFAULT_PREFIX,
 ) -> HloProtoSet: ...
 
 
@@ -372,8 +386,8 @@ def xla_module_metadata(
 def xla_module_metadata(
     program_id: str,
     policy: str = "consistent",
-    prefix: pathlib.Path = default_data_prefix(),
-) -> typing.Union[HloProto, HloProtoSet]:
+    prefix: pathlib.Path = _DEFAULT_PREFIX,
+) -> HloProto | HloProtoSet:
     """
     Load the protobuf metadata for module `program_id`. If given, `prefix` is the
     search path. `policy` governs what happens if `nsys-jax-combine` found inconsistent
@@ -387,7 +401,7 @@ def xla_module_metadata(
     if len(hlo_files) > 1:
         # nsys-jax-combine found different .pb.xz files from different profiles
         if policy == "consistent":
-            raise Exception(
+            raise ValueError(
                 f"program_id={program_id}: multiple protobuf dumps were found but policy demands consistency"
             )
         assert policy == "all"

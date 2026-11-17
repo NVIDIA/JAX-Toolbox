@@ -1,9 +1,11 @@
 from ctypes import cdll
 from functools import partial
+
 import jax
 import jax.numpy as jnp
 from jax.experimental.shard_map import shard_map
-from jax.sharding import Mesh, NamedSharding, PartitionSpec as P
+from jax.sharding import Mesh, NamedSharding
+from jax.sharding import PartitionSpec as P
 
 num_devices = 2
 assert jax.local_device_count() >= num_devices, (

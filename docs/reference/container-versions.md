@@ -8,6 +8,10 @@ The table below shows the first nightly that shipped with each base container.
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2026-10-31 | `nvcr.io/nvidia/cuda-dl-base:26.10-cuda13.4-devel-ubuntu24.04` |
+| 2026-10-07 | `nvcr.io/nvidia/cuda-dl-base:26.09-cuda13.4-devel-ubuntu24.04` |
+| 2026-09-05 | `nvcr.io/nvidia/cuda-dl-base:26.08-cuda13.4-devel-ubuntu24.04` |
+| 2026-08-05 | `nvcr.io/nvidia/cuda-dl-base:26.07-cuda13.3-devel-ubuntu24.04` |
 | 2026-07-08 | `nvcr.io/nvidia/cuda-dl-base:26.06-cuda13.3-devel-ubuntu24.04` |
 | 2026-06-26 | `nvcr.io/nvidia/cuda-dl-base:26.05-cuda13.2-devel-ubuntu24.04` |
 | 2026-05-01 | `nvcr.io/nvidia/cuda-dl-base:26.04-cuda13.2-devel-ubuntu24.04` |
@@ -26,4 +30,4 @@ The table below shows the first nightly that shipped with each base container.
 | 2024-07-24 | `nvidia/cuda:12.5.0-devel-ubuntu22.04` |
 
 See also [Staging Containers](./staging-containers.md) for the
-`scale-training` release history.
+`scale-training` / `staging` release history.

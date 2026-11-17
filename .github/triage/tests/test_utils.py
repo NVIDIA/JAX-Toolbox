@@ -1,8 +1,9 @@
 import logging
 import os
-import psutil
 import signal
 import time
+
+import psutil
 
 from jax_toolbox_triage.utils import run_and_log
 

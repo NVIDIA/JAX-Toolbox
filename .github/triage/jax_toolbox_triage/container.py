@@ -1,7 +1,9 @@
-from abc import ABC, abstractmethod
+from __future__ import annotations
+
 import logging
 import subprocess
 import typing
+from abc import ABC, abstractmethod
 
 
 class Container(ABC):
@@ -9,18 +11,16 @@ class Container(ABC):
         self._logger = logger
 
     @abstractmethod
-    def __enter__(self) -> "Container":
+    def __enter__(self) -> Container:
         """
         Launch the container instance
         """
-        pass
 
     @abstractmethod
     def __exit__(self, *exc_info) -> None:
         """
         Shut down the container instance
         """
-        pass
 
     @abstractmethod
     def __repr__(self) -> str:
@@ -29,26 +29,25 @@ class Container(ABC):
     @abstractmethod
     def exec(
         self,
-        command: typing.List[str],
+        command: list[str],
         *,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir: typing.Optional[str] = None,
+        workdir: str | None = None,
         log_level: int = logging.DEBUG,
     ) -> subprocess.CompletedProcess:
         """
         Run a command inside a persistent container.
         """
-        pass
 
     def check_exec(
         self,
-        cmd: typing.List[str],
+        cmd: list[str],
         *,
         log_level: int = logging.DEBUG,
         policy: typing.Literal["once", "once_per_container", "default"] = "default",
         stderr: typing.Literal["interleaved", "separate"] = "interleaved",
-        workdir: typing.Optional[str] = None,
+        workdir: str | None = None,
     ) -> subprocess.CompletedProcess:
         result = self.exec(
             cmd, log_level=log_level, policy=policy, stderr=stderr, workdir=workdir
@@ -70,4 +69,3 @@ class Container(ABC):
         """
         Check if the container exists.
         """
-        pass
