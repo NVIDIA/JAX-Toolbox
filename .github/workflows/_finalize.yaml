@@ -125,41 +125,40 @@ jobs:
 
   report:
     runs-on: ubuntu-22.04
+    env:
+      REPORT_ARTIFACT_NAME: ${{ inputs.ARTIFACT_NAME }}
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v8
 
-      - name: Write output to step summary
-        shell: bash -x -e {0}
-        run: |
-          find -name "sitrep.json" | while read -s f; do
-            cat "$f" | jq -r '.summary' | tee -a $GITHUB_STEP_SUMMARY
-          done
-
       - name: Concatenate all sitreps
         shell: bash -x -e {0}
         run: |
-          # combine all sitreps files into a single file, where each sitrep json sits
-          # in a field named by the folder that contained it
-          echo "[" >> fsitrep.json
-          sitrep_files=($(find . -name "sitrep.json"))
-          total_files=${#sitrep_files[@]}
-
-          # parse all the sitrep files and consolidate them into one
-          for ((i=0; i<total_files; i++)); do
-            FILE=${sitrep_files[$i]}
-            # Extract directory name
-            key=$(dirname "$FILE")
-            # Extract the summary field from the JSON files and append the content to the output JSON file.
-            value=$(cat "$FILE" |  jq -r '.summary' )
-
-            jq -n --arg key "$key" --arg value "$value" '{ ($key): $value }' >> fsitrep.json
-            if [ $i != $((total_files-1)) ]; then
-              echo -n "," >> fsitrep.json
+          set -o pipefail
+          # A rerun also downloads the previous aggregate. It is output, not a
+          # per-job sitrep; exclude it from both the step summary and JSON report.
+          find . -mindepth 2 -type f -name "sitrep.json" -print0 > sitrep-files
+          sitrep_files=()
+          while IFS= read -r -d '' file; do
+            if [[ "$file" == "./${REPORT_ARTIFACT_NAME}/"* ]]; then
+              continue
             fi
+            # Validate before publishing any summaries; do not hide bad inputs.
+            jq -e -s 'length == 1 and (.[0] | type == "object" and (.summary | type == "string"))' "$file" > /dev/null
+            sitrep_files+=("$file")
+          done < sitrep-files
+          if [[ ${#sitrep_files[@]} -eq 0 ]]; then
+            echo "No per-job sitrep files found" >&2
+            exit 1
+          fi
+
+          # Preserve the array of directory-keyed summaries expected by readers.
+          : > fsitrep.json
+          for file in "${sitrep_files[@]}"; do
+            jq -r '.summary' "$file" >> "$GITHUB_STEP_SUMMARY"
+            jq --arg key "$(dirname "$file")" '{($key): .summary}' "$file" >> fsitrep.json
           done
-          echo "]" >> fsitrep.json
-          mv fsitrep.json sitrep.json
+          jq -s '.' fsitrep.json > sitrep.json
 
       - name: Combine all json into final summary
         shell: bash -x -e {0}
@@ -170,8 +169,11 @@ jobs:
 
           # Loop over subdirectories in the current directory
           while IFS= read -r dir; do
-            echo $dir
-            dirName=$(basename $dir) && [ -d "$dir" ] || continue
+            echo "$dir"
+            dirName=$(basename "$dir") && [ -d "$dir" ] || continue
+            if [[ "$dirName" == "$REPORT_ARTIFACT_NAME" ]]; then
+              continue
+            fi
 
             # Initialize default empty JSON objects
             sitrep="{}"
@@ -191,7 +193,7 @@ jobs:
             # Use Bash globbing to find the *-status.json file and read it, else use default
             statusFiles=("$dir"/*-status.json)
             statusFile=${statusFiles[0]}
-            if [ -f $statusFile ]; then
+            if [ -f "$statusFile" ]; then
                 status=$(<"${statusFile}")
             fi
 
@@ -201,7 +203,7 @@ jobs:
                               --argjson status "$status" \
                               --argjson metricSummary "$metricSummary" \
                               '.[$dirName] = {"sitrep": $sitrep, "status": $status, "metrics_summary": $metricSummary}' <<<"$combinedJson")
-          done < <(find . -maxdepth 1 -type d)
+          done < <(find . -mindepth 1 -maxdepth 1 -type d)
 
           # Output the combined JSON to the file, nicely formatted
           echo "$combinedJson" | jq '.' > "$output"
