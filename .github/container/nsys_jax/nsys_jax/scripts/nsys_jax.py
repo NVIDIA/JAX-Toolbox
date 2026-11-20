@@ -297,6 +297,9 @@ def main() -> None:
 
     def as_bool(s):
         """String -> bool conversion following XLA's semantics."""
+        if s is None:
+            # A bare --flag, without =value, means true
+            return True
         if s.lower() == "true" or s == "1":
             return True
         if s.lower() == "false" or s == "0":
