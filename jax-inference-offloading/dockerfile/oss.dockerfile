@@ -38,7 +38,7 @@ apt-get clean
 apt-get autoremove -y
 rm -rf /var/lib/apt/lists/*
 
-pip install pip-tools
+pip install 'pip-tools==7.6.2'
 rm -rf ~/.cache/pip
 EOF
 
