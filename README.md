@@ -283,3 +283,6 @@ In addition to the public CI, we also run internal CI nightlies on [**GB300**](h
 ## Experimental projects
 - [**JAX-vLLM Rollout Offloading Bridge**](https://github.com/NVIDIA/JAX-Toolbox/tree/main/jax-inference-offloading#readme)
   - This project couples JAX training with vLLM inference to accelerate reinforcement-learning (RL) post-training
+
+## Contributing
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. All commits must be signed off under the [Developer Certificate of Origin](DCO).
