@@ -8,6 +8,7 @@ The table below shows the first nightly that shipped with each base container.
 
 | First nightly with new base container | Base container |
 | ------------------------------------- | -------------- |
+| 2026-11-25 | `nvcr.io/nvidia/cuda-dl-base:26.11-cuda13.5-devel-ubuntu24.04` |
 | 2026-10-31 | `nvcr.io/nvidia/cuda-dl-base:26.10-cuda13.4-devel-ubuntu24.04` |
 | 2026-10-07 | `nvcr.io/nvidia/cuda-dl-base:26.09-cuda13.4-devel-ubuntu24.04` |
 | 2026-09-05 | `nvcr.io/nvidia/cuda-dl-base:26.08-cuda13.4-devel-ubuntu24.04` |
