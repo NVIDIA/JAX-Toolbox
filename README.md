@@ -30,20 +30,26 @@ JAX Toolbox
 - **Experimental projects**: Experimental projects for developers to evaluate and provide feedback on
 
 ## Latest news
+- **[NGC 26.11](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-11.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.11-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.11-maxtext-py3) images released
+  - `CUDA 13.5.0`, JAX [`v0.12.0`](https://github.com/jax-ml/jax/releases/tag/jax-v0.12.0)
+  - NVIDIA Rubin support: JAX and MaxText add general availability support for Rubin GPUs, with an updated XLA cost model and support for targeting PTX 9.4.
+  - Improved distributed execution: GPU collectives run inside CUDA graphs, ragged-all-to-all supports up to 128 GPUs, and dedicated CPU/GPU copy streams improve overlap with computation and communication.
+  - Faster MoE training: Optimized DeepSeek V3 MXFP8 performance on Blackwell and Rubin GPUs, expanded Transformer Engine expert parallelism across GPUs in one process, and fixed expert capacity sizing with gradient accumulation in MaxText.
+  - Experimental GPU code generation: XLA adds an opt-in TensorIR code generator using CUDA Tile IR, including FP8 and multi-output fusions. Requires SM90 or newer and CUDA 13.3 or newer.
 - **[NGC 26.10](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/-/tags)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.10-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.10-maxtext-py3) images released
   - `CUDA 13.4.3`, JAX [`v0.11.2`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.2)
   - Updated GPU libraries: Includes [Transformer Engine 2.20.2](https://github.com/NVIDIA/TransformerEngine/releases/tag/v2.20.2), cuDNN 9.27.0.42, and NCCL 2.32.3.
   - Expanded MoE support: Transformer Engine adds Hopper BF16 grouped GEMM, `sqrtsoftplus` routing, and single-process multi-device expert parallelism, with fixes for routed-gradient races and fused-attention sharding.
   - Improved distributed execution and GPU operations: JAX adds Open MPI 5 cluster detection and optional mutual TLS for distributed initialization, and improves multidimensional inverse real FFT and cumulative-sum performance on GPUs.
   - MaxText compatibility: Restored the JetStream dependency for inference imports, pinned TensorFlow dependencies to avoid a broken Linux wheel, and fixed CUTLASS DSL imports shadowing PyTorch.
+<details><summary>Prior release information</summary>
+
 - **[NGC 26.09](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-09.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.09-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.09-maxtext-py3) images released
   - [`CUDA 13.4.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-09.html), JAX [`v0.11.1`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.1)
   - Updated GPU and software support: DLFW 26.09 introduces initial NVIDIA Rubin support, upgrades JAX to v0.11.1, and adds CUDA 13.4, PTX9, and cuRAND 11 support.
   - Faster MoE training: Added communication and GEMM overlap in MaxText and TransformerEngine, NCCL-based expert parallelism, and faster top-k routing to improve GPU utilization.
   - Improved attention and low-precision operations: Added cuDNN flex attention and Blackwell attention optimizations, reduced FP4 memory requirements, and fixed correctness issues across FP4, FP8, and batched attention.
   - More efficient distributed execution and runtime: Enhanced collectives, Open MPI cluster detection, memory reuse, and command buffers to reduce overhead, improve memory predictability, and expand profiling support.
-<details><summary>Prior release information</summary>
-
 - **[NGC 26.08](https://docs.nvidia.com/deeplearning/frameworks/jax-release-notes/rel-26-08.html)** [**JAX**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.08-py3) and [**MaxText**](https://catalog.ngc.nvidia.com/orgs/nvidia/-/containers/jax/26.08-maxtext-py3) images released
   - [`CUDA 13.4.1`](https://docs.nvidia.com/deeplearning/frameworks/cuda-dl-release-notes/rel-26-08.html), JAX [`v0.11.0`](https://github.com/jax-ml/jax/releases/tag/jax-v0.11.0)
   - MoE: Improves training speed and GPU utilization through communication/GEMM overlap, fused feed-forward operations, faster expert routing, and new NCCL-based expert parallelism. It also fixes DeepSeek-V3 routing and adds activation configurability.
