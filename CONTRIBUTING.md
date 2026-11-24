@@ -26,13 +26,51 @@ can be merged.
    link any related issues. A maintainer will review your pull request; CI for pull
    requests from forks is started by a maintainer after an initial review.
 
+## License
+
+JAX-Toolbox is dual-licensed (see [LICENSE.md](LICENSE.md)):
+
+- **Source code** (for example Python, shell, Dockerfiles, CI workflows and other
+  scripts or configuration) is licensed under the
+  [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) (`Apache-2.0`).
+- **Documentation, skills and other assets** (for example Markdown documentation,
+  tutorials, agent skills and images) are licensed under the
+  [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/)
+  license (`CC-BY-4.0`).
+
+By contributing, you agree that your contribution is licensed under the terms that
+apply to it: Apache-2.0 for source code and CC-BY-4.0 for documentation, skills and
+assets.
+
+New source files should start with an SPDX header (after the shebang line, if any):
+
+```python
+# SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+```
+
+Documentation-style files are covered by the top-level [LICENSE.md](LICENSE.md). If a
+documentation file or skill carries a license header, use `CC-BY-4.0`, for example
+as an HTML comment in Markdown:
+
+```markdown
+<!--
+SPDX-FileCopyrightText: Copyright (c) <year> NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: CC-BY-4.0
+-->
+```
+
+For files with YAML front matter (such as agent skills' `SKILL.md`), put the header
+after the front matter and the first heading, so that tools that parse the front
+matter are not affected.
+
 ## Signing your work
 
 JAX-Toolbox uses the [Developer Certificate of Origin (DCO)](DCO) for all
 contributions. We require that every contributor "sign off" on each of their commits.
 The sign-off certifies that the contribution is your original work, or that you have
-the right to submit it under the same license as this project
-([Apache License 2.0](LICENSE.md)) or a compatible license.
+the right to submit it under the license that applies to it in this project (see
+[License](#license)) or a compatible license.
 
 **Any contribution that contains commits that are not signed off will not be accepted.**
 
@@ -115,8 +153,9 @@ please say so explicitly in the pull request description and include:
 - the license it is distributed under, and
 - the original copyright and license notices, which must be preserved.
 
-Material under a license that is not compatible with the Apache License 2.0 cannot be
-accepted.
+Material under a license that is not compatible with the license that applies to it
+in this project (Apache-2.0 for source code, CC-BY-4.0 for documentation, skills and
+assets) cannot be accepted.
 
 ## Information for NVIDIA contributors
 

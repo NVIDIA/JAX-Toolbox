@@ -5,7 +5,7 @@ JAX Toolbox
 
 **JAX Toolbox** is NVIDIA's home for [**JAX and XLA on GPUs**](https://docs.nvidia.com/jax-toolbox/getting-started/jax-on-nvidia-gpu-stack), including the latest updates, containers and educational resources.
 
-[![License Apache 2.0](https://badgen.net/badge/license/apache2.0/blue)](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
+[![License: Apache-2.0 + CC-BY-4.0](https://badgen.net/badge/license/Apache-2.0%20%2B%20CC-BY-4.0/blue)](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
 [![Build](https://badgen.net/badge/build/check-status/blue)](#build-pipeline-status)
 
 [**Latest news**](https://github.com/NVIDIA/JAX-Toolbox/#latest-news)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Tech blogs**](https://github.com/NVIDIA/JAX-Toolbox/#tech-blogs)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Documentation**](https://docs.nvidia.com/jax-toolbox/introduction)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Resources**](https://github.com/NVIDIA/JAX-Toolbox/#resources)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;[**Container images**](https://github.com/NVIDIA/JAX-Toolbox/#container-images)
@@ -286,3 +286,6 @@ In addition to the public CI, we also run internal CI nightlies on [**GB300**](h
 
 ## Contributing
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. All commits must be signed off under the [Developer Certificate of Origin](DCO).
+
+## License
+JAX Toolbox is dual-licensed: source code is released under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), and documentation, skills and other assets are released under the [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) license. See [LICENSE.md](LICENSE.md) for the full text of both licenses.

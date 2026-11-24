@@ -33,5 +33,9 @@ and A100 SXM 80GB.
 
 ## License
 
-JAX Toolbox is released under the
-[Apache 2.0 License](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md).
+JAX Toolbox is dual-licensed. Source code is released under the
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0), and
+documentation, skills and other assets are released under the
+[Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
+license. See [LICENSE.md](https://github.com/NVIDIA/JAX-Toolbox/blob/main/LICENSE.md)
+for the full text of both licenses.
