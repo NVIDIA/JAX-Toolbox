@@ -21,8 +21,8 @@ which users install separately; none of their code is copied into this directory
 
 ## Third-party material in skill files
 
-Some skill files, mostly evaluation fixtures under `<skill-name>/evals/files/`, contain excerpts of, or output
-produced by, third-party projects. The `NOTICE.md` beside such files is the authoritative notice for them: it gives
+Some skill files, mostly evaluation fixtures under `skills/<skill-name>/evals/files/`, contain excerpts of, or
+output produced by, third-party projects. The `NOTICE.md` beside such files is the authoritative notice for them: it gives
 the source URL (pinned to a commit), the upstream project, the license and the local changes. To list these notices,
 run `find skills -name NOTICE.md`.
 
