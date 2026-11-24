@@ -8,7 +8,7 @@ JAX-Toolbox (containers, CI and other code).
 Skills do not vendor runtime dependencies. Their scripts and instructions may use the packages and tools below,
 which users install separately; none of their code is copied into this directory.
 
-**Table 1. Dependencies: used by skills, installed separately, not included in this directory**
+**Table 1. Dependencies (not included)**
 
 | Project | License | Use |
 |---|---|---|
@@ -28,7 +28,7 @@ output produced by, third-party projects. The `NOTICE.md` beside such files is t
 it gives the source URL (pinned to a commit), the upstream project, the license and the local changes. To list
 these notices, run `find skills -name NOTICE.md`.
 
-**Table 2. Third-party material: included in skill files**
+**Table 2. Third-party material (included)**
 
 | Project | License | Kind of material |
 |---|---|---|
