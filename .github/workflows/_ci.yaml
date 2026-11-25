@@ -77,6 +77,7 @@ jobs:
           with:
             role-to-assume: ${{ secrets.S3_CACHE_ROLE }}
             aws-region: ${{ env.CACHE_AWS_REGION }}
+            role-duration-seconds: 14400
         - name: Start bazel-remote sidecar
           env:
             BAZEL_REMOTE_BUCKET: ${{ secrets.BAZEL_REMOTE_BUCKET }}
