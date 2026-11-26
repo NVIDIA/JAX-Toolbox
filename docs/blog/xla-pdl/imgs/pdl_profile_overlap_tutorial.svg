@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1440" viewBox="0 0 1800 1440">
+<rect width="100%" height="100%" fill="white"/>
+<style>
+text{font-family:Inter,Arial,sans-serif;fill:#20252c}
+.title{font-size:38px;font-weight:700}.subtitle{font-size:21px;fill:#59626e}
+.workload{font-size:28px;font-weight:700}.metric{font-size:18px;fill:#59626e}
+.panel-title{font-size:21px;font-weight:700}.lane{font-size:16px;fill:#59626e}
+.bar-label{font-size:18px;font-weight:650;fill:white}.bar-duration{font-size:15px;fill:white}
+.dependent-label{font-size:16px;font-weight:650;fill:#126a59}.dependent-duration{font-size:15px;fill:#126a59}
+.delta{font-size:17px;font-weight:700}.axis{stroke:#68727e;stroke-width:1.5}
+.tick{font-size:14px;fill:#68727e}.foot{font-size:17px;fill:#59626e}
+</style>
+<text x="60" y="58" class="title">PDL turns serialized kernel pairs into same-stream overlap</text>
+<text x="60" y="94" class="subtitle">H100 Nsight Systems traces · CUDA graphs ON in both arms · actual kernel start/end timestamps</text>
+<text x="60" y="165" class="workload">AlphaFold 3</text>
+<text x="650" y="158" class="metric">GPU 0 · single H100</text>
+<text x="650" y="184" class="metric">Median-nearest selection · matched pairs: OFF 50, ON 50</text>
+<rect x="60" y="203" width="820" height="310" rx="12" fill="#f7f8fa" stroke="#ccd2da" stroke-width="2"/>
+<text x="82" y="237" class="panel-title" fill="#3d4652">PDL OFF · CUDA graphs ON</text>
+<text x="158" y="312" class="lane" text-anchor="end">producer</text>
+<text x="158" y="402" class="lane" text-anchor="end">dependent</text>
+<line x1="172" y1="453" x2="848" y2="453" class="axis"/>
+<text x="172" y="476" class="tick" text-anchor="middle">0</text>
+<text x="848" y="476" class="tick" text-anchor="middle">134.4 µs</text>
+<rect x="562.3968647291274" y="272" width="8.049523627094459" height="155" fill="#d9dee5" opacity="0.9"/>
+<rect x="172.0" y="281" width="390.3968647291274" height="47" rx="5" fill="#173f73"/>
+<rect x="570.4463883562219" y="371" width="213.31237599086342" height="47" rx="5" fill="#199b83"/>
+<text x="182.0" y="311" class="bar-label">SM90 GEMM</text>
+<text x="554.3968647291274" y="311" class="bar-duration" text-anchor="end">77.60 µs</text>
+<text x="862" y="353" class="dependent-label" text-anchor="end">loop_add_fusion_84</text>
+<text x="862" y="372" class="dependent-duration" text-anchor="end">42.40 µs</text>
+<text x="566.4216265426746" y="438" class="delta" fill="#59626e" text-anchor="middle">gap 1.60 µs</text>
+<rect x="920" y="203" width="820" height="310" rx="12" fill="#f3faf7" stroke="#9bcdbb" stroke-width="2"/>
+<text x="942" y="237" class="panel-title" fill="#187a5c">PDL ON · CUDA graphs ON</text>
+<text x="1018" y="312" class="lane" text-anchor="end">producer</text>
+<text x="1018" y="402" class="lane" text-anchor="end">dependent</text>
+<line x1="1032" y1="453" x2="1708" y2="453" class="axis"/>
+<text x="1032" y="476" class="tick" text-anchor="middle">0</text>
+<text x="1708" y="476" class="tick" text-anchor="middle">134.4 µs</text>
+<rect x="1402.112065209336" y="272" width="21.89470424425076" height="155" fill="#f4b860" opacity="0.48"/>
+<rect x="1032.0" y="281" width="392.0067694535867" height="47" rx="5" fill="#173f73"/>
+<rect x="1402.112065209336" y="371" width="255.81386071659017" height="47" rx="5" fill="#199b83"/>
+<text x="1042.0" y="311" class="bar-label">SM90 GEMM</text>
+<text x="1416.0067694535867" y="311" class="bar-duration" text-anchor="end">77.92 µs</text>
+<text x="1722" y="353" class="dependent-label" text-anchor="end">loop_add_fusion_84</text>
+<text x="1722" y="372" class="dependent-duration" text-anchor="end">50.85 µs</text>
+<text x="1413.0594173314612" y="438" class="delta" fill="#b26000" text-anchor="middle">overlap 4.35 µs</text>
+<text x="60" y="565" class="workload">TimesFM 2.5</text>
+<text x="650" y="558" class="metric">GPU 0 · single H100</text>
+<text x="650" y="584" class="metric">Median-nearest selection · matched pairs: OFF 20, ON 20</text>
+<rect x="60" y="603" width="820" height="310" rx="12" fill="#f7f8fa" stroke="#ccd2da" stroke-width="2"/>
+<text x="82" y="637" class="panel-title" fill="#3d4652">PDL OFF · CUDA graphs ON</text>
+<text x="158" y="712" class="lane" text-anchor="end">producer</text>
+<text x="158" y="802" class="lane" text-anchor="end">dependent</text>
+<line x1="172" y1="853" x2="848" y2="853" class="axis"/>
+<text x="172" y="876" class="tick" text-anchor="middle">0</text>
+<text x="848" y="876" class="tick" text-anchor="middle">13.8 µs</text>
+<rect x="710.0766731643922" y="672" width="4.706209969367933" height="155" fill="#d9dee5" opacity="0.9"/>
+<rect x="172.0" y="681" width="538.0766731643922" height="47" rx="5" fill="#173f73"/>
+<rect x="714.7828831337602" y="771" width="72.1618861969738" height="47" rx="5" fill="#199b83"/>
+<text x="182.0" y="711" class="bar-label">gemm_fusion_dot_45</text>
+<text x="702.0766731643922" y="711" class="bar-duration" text-anchor="end">10.98 µs</text>
+<text x="862" y="753" class="dependent-label" text-anchor="end">input_concatenate_fusion_2</text>
+<text x="862" y="772" class="dependent-duration" text-anchor="end">1.47 µs</text>
+<text x="712.4297781490761" y="838" class="delta" fill="#59626e" text-anchor="middle">gap 0.096 µs</text>
+<rect x="920" y="603" width="820" height="310" rx="12" fill="#f3faf7" stroke="#9bcdbb" stroke-width="2"/>
+<text x="942" y="637" class="panel-title" fill="#187a5c">PDL ON · CUDA graphs ON</text>
+<text x="1018" y="712" class="lane" text-anchor="end">producer</text>
+<text x="1018" y="802" class="lane" text-anchor="end">dependent</text>
+<line x1="1032" y1="853" x2="1708" y2="853" class="axis"/>
+<text x="1032" y="876" class="tick" text-anchor="middle">0</text>
+<text x="1708" y="876" class="tick" text-anchor="middle">13.8 µs</text>
+<rect x="1579.4890931031282" y="672" width="18.82483987747105" height="155" fill="#f4b860" opacity="0.48"/>
+<rect x="1032.0" y="681" width="566.3139329805992" height="47" rx="5" fill="#173f73"/>
+<rect x="1579.4890931031282" y="771" width="78.43683282279767" height="47" rx="5" fill="#199b83"/>
+<text x="1042.0" y="711" class="bar-label">gemm_fusion_dot_45</text>
+<text x="1590.3139329805992" y="711" class="bar-duration" text-anchor="end">11.55 µs</text>
+<text x="1722" y="753" class="dependent-label" text-anchor="end">input_concatenate_fusion_2</text>
+<text x="1722" y="772" class="dependent-duration" text-anchor="end">1.60 µs</text>
+<text x="1588.9015130418638" y="838" class="delta" fill="#b26000" text-anchor="middle">overlap 0.384 µs</text>
+<text x="60" y="965" class="workload">Gemma 4 31B, TP=4</text>
+<text x="650" y="958" class="metric">GPU 0 of 4 × H100 · tensor parallelism = 4</text>
+<text x="650" y="984" class="metric">Median-nearest selection · matched pairs: OFF 60, ON 60</text>
+<rect x="60" y="1003" width="820" height="310" rx="12" fill="#f7f8fa" stroke="#ccd2da" stroke-width="2"/>
+<text x="82" y="1037" class="panel-title" fill="#3d4652">PDL OFF · CUDA graphs ON</text>
+<text x="158" y="1112" class="lane" text-anchor="end">producer</text>
+<text x="158" y="1202" class="lane" text-anchor="end">dependent</text>
+<line x1="172" y1="1253" x2="848" y2="1253" class="axis"/>
+<text x="172" y="1276" class="tick" text-anchor="middle">0</text>
+<text x="848" y="1276" class="tick" text-anchor="middle">24.5 µs</text>
+<rect x="744.9538371624111" y="1072" width="7.062945168472083" height="155" fill="#d9dee5" opacity="0.9"/>
+<rect x="172.0" y="1081" width="572.9538371624111" height="47" rx="5" fill="#173f73"/>
+<rect x="752.0167823308832" y="1171" width="45.90914359504268" height="47" rx="5" fill="#199b83"/>
+<text x="182.0" y="1111" class="bar-label">gemm_fusion_dot_2129</text>
+<text x="736.9538371624111" y="1111" class="bar-duration" text-anchor="end">20.77 µs</text>
+<text x="862" y="1153" class="dependent-label" text-anchor="end">loop_reduce_fusion_118</text>
+<text x="862" y="1172" class="dependent-duration" text-anchor="end">1.66 µs</text>
+<text x="748.4853097466471" y="1238" class="delta" fill="#59626e" text-anchor="middle">gap 0.256 µs</text>
+<rect x="920" y="1003" width="820" height="310" rx="12" fill="#f3faf7" stroke="#9bcdbb" stroke-width="2"/>
+<text x="942" y="1037" class="panel-title" fill="#187a5c">PDL ON · CUDA graphs ON</text>
+<text x="1018" y="1112" class="lane" text-anchor="end">producer</text>
+<text x="1018" y="1202" class="lane" text-anchor="end">dependent</text>
+<line x1="1032" y1="1253" x2="1708" y2="1253" class="axis"/>
+<text x="1032" y="1276" class="tick" text-anchor="middle">0</text>
+<text x="1708" y="1276" class="tick" text-anchor="middle">24.5 µs</text>
+<rect x="1586.4136060951769" y="1072" width="11.47728589876624" height="155" fill="#f4b860" opacity="0.48"/>
+<rect x="1032.0" y="1081" width="565.8908919939431" height="47" rx="5" fill="#173f73"/>
+<rect x="1586.4136060951769" y="1171" width="52.089220617452156" height="47" rx="5" fill="#199b83"/>
+<text x="1042.0" y="1111" class="bar-label">gemm_fusion_dot_2129</text>
+<text x="1589.8908919939431" y="1111" class="bar-duration" text-anchor="end">20.51 µs</text>
+<text x="1722" y="1153" class="dependent-label" text-anchor="end">loop_reduce_fusion_118</text>
+<text x="1722" y="1172" class="dependent-duration" text-anchor="end">1.89 µs</text>
+<text x="1592.15224904456" y="1238" class="delta" fill="#b26000" text-anchor="middle">overlap 0.416 µs</text>
+<line x1="60" y1="1350" x2="1740" y2="1350" stroke="#d8dde3" stroke-width="1.5"/>
+<text x="60" y="1382" class="foot">Selection rule: occurrence closest to the median producer-end → dependent-start delta for the same repeated pair; not the maximum-overlap sample.</text>
+<text x="60" y="1409" class="foot">Both lanes represent one CUDA stream; each row has its own time scale. Kernel overlap is not an end-to-end latency measurement.</text>
+</svg>
