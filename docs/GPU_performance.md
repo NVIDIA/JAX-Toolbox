@@ -47,6 +47,7 @@ Please note that some of these flags are experimental. All combinations of flags
 
 - The `xla_gpu_memory_limit_slop_factor` flag controls the memory used by XLA for determining its default heuristics for scheduling, and rematerialization. Default is recommended.
 
+- The experimental `xla_gpu_experimental_scheduler_memory_fencing_threshold_bytes` flag enables scheduler memory fencing, which limits peak memory when the latency-hiding scheduler would otherwise defer users of large buffers and keep those buffers live too long. `-1` disables the feature (default), `0` fences buffers at least 1% of the scheduler memory limit, and a positive value specifies the threshold in bytes. The optional `xla_gpu_experimental_scheduler_memory_fencing_slack_windows` flag controls how many asynchronous-operation windows fenced buffer users may be deferred (default: `1`).
 
 ## General CUDA/NCCL flags 
 
