@@ -29,7 +29,7 @@ Please note that some of these flags are experimental. All combinations of flags
 - Use CUDA Graphs (command buffer) → see [CUDA graphs](#cuda-graphs)
 
 **OOMs or fragmentation**
-- Set XLA_PYTHON_CLIENT_MEM_FRACTION → see [Memory management](#flags-to-manage-memory-used-in-jaxxla)
+- Set XLA_CLIENT_MEM_FRACTION → see [Memory management](#flags-to-manage-memory-used-in-jaxxla)
 - Tune xla_gpu_memory_limit_slop_factor → see [Memory management](#flags-to-manage-memory-used-in-jaxxla)
 
 **Multi-device single-process hangs**
@@ -41,7 +41,12 @@ Please note that some of these flags are experimental. All combinations of flags
 
 ## Flags to manage memory used in JAX/XLA
 
-- XLA_PYTHON_CLIENT_MEM_FRACTION is a XLA environment variable that allocates a fraction of GPU memory for JAX/XLA.
+Launch scripts unset the deprecated `XLA_PYTHON_CLIENT_MEM_FRACTION`. JAX uses its
+default memory fraction (normally 0.75) unless `XLA_CLIENT_MEM_FRACTION` is set
+externally. For multiple pytest workers sharing a GPU, set `XLA_CLIENT_MEM_FRACTION`
+to divide the available memory among workers.
+
+- XLA_CLIENT_MEM_FRACTION is a XLA environment variable that allocates a fraction of GPU memory for JAX/XLA.
 --  Ideally, should be 1, but in practice less because some memory is used by NVIDIA Libraries, and the JAX framework.
 --  We typically set it to 0.9 or 0.8. At 0.9, XLA gets 90% of GPU memory.
 
@@ -60,7 +65,7 @@ The following environment variable restricts CUDA queues to 1 and is useful when
 See [NCCL Environment Variables](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) for more details.
 - NCCL_PROTO: SIMPLE,LL,LL128
 
-The following variable accelerates all-reduce collective on NVLink4/H100. It requires additional GPU memory and may need one to reduce `XLA_PYTHON_CLIENT_MEM_FRACTION` to avoid OOMs if enabled.
+The following variable accelerates all-reduce collective on NVLink4/H100. It requires additional GPU memory and may need one to reduce `XLA_CLIENT_MEM_FRACTION` to avoid OOMs if enabled.
 - NCCL_NVLS_ENABLE:1 
 
 
@@ -171,7 +176,7 @@ The following flag removes extra copies introduced by DUS (dynamic update slice)
 Enable user-buffers in NCCL for zero-copy collectives and send/recv. Needs NCCL_NVLS_ENABLE=1 for AG, AR, RS.
 - --xla_gpu_enable_nccl_user_buffers=true
 
-When user-buffers is enabled, a separate memory pool is created for user-buffer registered memory. Environment variable `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB` can be used to configure this memory pool. It may also be necessary to reduce `XLA_PYTHON_CLIENT_MEM_FRACTION` to ensure there is enough memory for the user buffer pool.
+When user-buffers is enabled, a separate memory pool is created for user-buffer registered memory. Environment variable `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB` can be used to configure this memory pool. It may also be necessary to reduce `XLA_CLIENT_MEM_FRACTION` to ensure there is enough memory for the user buffer pool.
 - `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB=0` (default value) - The user buffer pool will start empty, but will grow during execution as more collective memory is required. This setting can result in extra fragmentation and inefficient memory use.
 - `XLA_PYTHON_CLIENT_COLLECTIVE_MEM_SIZE_MB=<amount of MiB to preallocate>` - The user buffer pool will preallocate this amount of memory at the begining. The number should be high enough to cover peak collective memory usage.
 

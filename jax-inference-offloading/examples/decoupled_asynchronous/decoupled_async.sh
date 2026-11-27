@@ -269,7 +269,7 @@ export MAX_COMPLETED_PROMPTS
 export DISPATCH_DELAY
 export VLLM_ENFORCE_EAGER
 export VLLM_GPU_MEMORY_UTILIZATION
-export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+unset XLA_PYTHON_CLIENT_MEM_FRACTION
 export XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=true
                   --xla_gpu_enable_command_buffer=FUSION,CUBLAS,CUDNN,CUSTOM_CALL
                   --xla_gpu_collective_permute_combine_threshold_bytes=8589934592
