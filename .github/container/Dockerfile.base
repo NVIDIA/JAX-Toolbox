@@ -94,6 +94,8 @@ EOF
 # Otherwise its pip dependency can replace our VCS-equivalency implementation.
 RUN pip install --no-cache-dir 'pip==23.3.1' pip-tools
 
+RUN pip install --no-cache-dir uv
+
 # The symlinks for CUDA/cuDNN/NCCL exist to make the container's installations
 # of those components conform to XLA's expectations for local installations.
 
